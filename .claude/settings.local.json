@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/c/Users/hariharan.balaji/Desktop/Personal/Codebase/Agents_openai/README.md:*)",
+      "Bash(python:*)",
+      "Bash(PYTHONPATH=/c/Users/hariharan.balaji/Desktop/Personal/Codebase/Agents_openai python:*)",
+      "Bash(wc:*)",
+      "Bash(pip list:*)",
+      "Bash(SYSTEM_SUMMARY.txt:*)",
+      "Bash(ls -lh *.py *.md *.txt)",
+      "Bash(RUN_THIS.txt:*)"
+    ]
+  }
+}
