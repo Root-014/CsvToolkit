@@ -13,7 +13,13 @@ config_list = {
 llm_config = {
     "config_list": config_list,
     "temperature": 0.7,
-    "max_tokens": 2000,
+    "max_tokens": 3000,
+}
+
+llm_config = {
+    "config_list": config_list,
+    "temperature": 0.7,
+    "max_tokens": 3000,
 }
 
 manager_agent_prompt = """
@@ -131,6 +137,7 @@ You are a PYTHON CODE SPECIALIST.
 - Generate clean, efficient, optimized executable Python code based on Manager's instructions
 - Follow best practices
 - Include error handling
+- save the code whenever you complete the code
 
 YOUR STRONG AREA:
     - PANDAS
@@ -178,11 +185,18 @@ INPUT:
     - USER REQUEST: {user_request}
     - GENERATED CODE: CODER AGENT OUTPUT
 
-***** FIRST EXECUTE THE CODE AND GET THE OUTPUT *****
-
 ROLE:
-    - Validate whether the generated code correctly and fully satisfies the USER REQUEST.
-    - Perform strict technical validation before any execution.
+    - When you start/ask to validate the code, first Run the generated code correctly and check whether it satisfies the USER REQUEST.
+    - If the code is not able to run or gives error then respond what's the error and root cause.
+    - Perform strict technical validation.
+    - YOU ARE ALLOWED TO CALL THE TOOL TO EXEC THE CODE.
+
+STEPS: 
+    1. Execute the code.
+    2. Wait till the code execution completes.
+    3. Check the output.
+    4. Compare the output with the USER REQUEST.
+    5. Respond the response with the format given.
 
 STRICT RULES:
     - DO NOT modify or rewrite the code.
@@ -266,7 +280,7 @@ request_prompt = lambda request, code_output: f"""
             """
 
 class Agents:
-    def __init__(self, model='minimax-m2.5:cloud', base_url='http://localhost:11434/v1', api_key='gemma3', api_type='openai', price=[0.0, 0.0], OUTPUT_DIR='.'):
+    def __init__(self, model='qwen3.5:cloud', base_url='http://localhost:11434/v1', api_key='gemma3', api_type='openai', price=[0.0, 0.0], OUTPUT_DIR='.'):
         self.model = model
         self.base_url = base_url
         self.api_key = api_key
@@ -284,6 +298,11 @@ class Agents:
             "config_list": self.config_list,
             "temperature": 0.5,
             "max_tokens": 2000,
+        }
+        self.llm_config_2 = {
+            "config_list": self.config_list,
+            "temperature": 0.5,
+            "max_tokens": 5000,
         }
 
     def is_termination_msg(self, msg):
@@ -382,7 +401,7 @@ class Agents:
     def coder_agent_init(self):
         coder_agent = autogen.AssistantAgent(
             name="Coder",
-            llm_config=self.llm_config,
+            llm_config=self.llm_config_2,
             system_message=coder_agent_prompt,
             is_termination_msg=self.is_termination_msg,
 
@@ -393,10 +412,22 @@ class Agents:
     def validate_agent(self, user_request):
         feedback_agent = autogen.AssistantAgent(
             name="FeedbackAgent",
-            llm_config=self.llm_config,
+            llm_config=    {  **self.llm_config,
+            "functions": [
+                {
+                    "name": "execute_generated_code",
+                    "description": "Executes the generated Python code",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {},
+                        "required": []
+                    }
+                }
+            ]
+        },
             system_message=validate_agent_prompt(user_request),
         )
-        feedback_agent.register_function(function_map={"execute_generated_code": self.execute_generated_code})
+        feedback_agent.register_function(function_map={"python_code_executor": self.execute_generated_code})
         return feedback_agent
 
     def executor_agent_init(self):

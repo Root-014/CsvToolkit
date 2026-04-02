@@ -108,7 +108,7 @@ def analyze_request_groupchat(request, metadata_text):
                 End ONLY when feedback agent says approved in capital.
 
                 INVALID BEHAVIOR:
-                - Generating tool calls
+                
                 - Writing XML / JSON tool formats
                 - Calling functions
 
