@@ -1,6 +1,9 @@
 import autogen
 import os
 import re
+from autogen import AssistantAgent
+
+
 
 config_list = {
     'model': 'minimax-m2.5:cloud',
@@ -32,9 +35,6 @@ YOUR TEAM:
 - MetaAgent: Dataset expert (ask about any info related to the dataset ONLY)
 - Coder: Python code generator (request only for code generation)
 
-
-- DON'T RUN METAAGENT AGAIN ONCE IT WAS CALLED EARLIER OR WHEN METADATA_READY IS RESPONDED.
-
 EXAMPLE:
 "MetaAgent : I need to understand the input dataset. What is the exact column name for 'Fcst_BaselineFcst_Baseline' in the Final_Merge dataset?"
 "Coder : generate code to read the CSV file from the specified path and filter for holidays in the year 2026"
@@ -50,13 +50,17 @@ WORKFLOW (MANDATORY)
     * Always pass the format of the Time column to the coder agent.
     * Respond: METADATA_READY
 3. NEVER call MetaAgent again
-4. Ask Coder to generate code using metadata and request 
-    - If plots are requested use plotly.
-    - Always save the them as .html and also display them
-5. IF Validator says REJECTED:
-    * Ask Coder to fix using feedback
+4. Ask Coder to generate code using metadata and user request
+    - Explain the task very clearly to the coder agent (step by step).
+    - Don't add anything ADDITIONALLY than what is asked.
+    - If there are any column names pass that column names to the coder agent.
+    - Don't use plots unless it's requested by the user. If plots are requested use plotly.
+    - Always save the them as .html and also display them.
+
+5. IF Validator agent says REJECTED:
+    * Ask Coder agent to fix using feedback
     * Repeat loop
-6. IF Validator says Approved :
+6. IF Validator agent says Approved :
     * With final result you have to explain the final response to the ask of the user request directly in the end. FOLLOW THE FORMAT : 
             "REQUEST : <USER REQUEST> 
             "RESPONSE : <FINAL RESPONSE>" based with the code result
@@ -91,14 +95,7 @@ RESPONSE RULES
 - Be concise (max 80 words)
 - No explanations unless necessary
 - No extra text outside instructions
-- ONCE VALIDATOR RESULT MEETS THE ASK OF THE USER IMMEDIATELY EXIT DON'T GO BEYOND THAT.
-
-====================================
-FAILSAFE
-====================================
-
-If unsure or missing information:
- * Ask MetaAgent (only if METADATA phase not completed)
+- ONCE VALIDATOR RESULT MEETS THE ASK OF THE USER TERMINATE IMMEDIATELY DON'T GO BEYOND THAT.
 
 """
 metaagent_prompt = lambda metadata_text: f""" 
@@ -177,26 +174,38 @@ STRICTLY CODE ONLY
 
 If you need any information then ask Manager AGENT for that.
 """
+executor_prompt = """
+YOU ARE A PYTHON CODE EXECUTION SPECIALIST.
 
+
+OUTPUT FORMAT:
+-> STATUS : <EXECUTED/ERROR>
+        - If execution returns error -> STATUS: ERROR
+        - If output satisfies user request -> STATUS: EXECUTED
+        - Otherwise -> STATUS: ERROR
+IF STATUS = ERROR
+    -> REASON: <brief, precise justification: WHY CODE FAILED OR NOT ABLE TO RUN>
+
+-> OUTPUT: <brief, precise justification: CODE OUTPUT>
+
+
+"""
 validate_agent_prompt = lambda user_request: f""" 
-You are a CODE VALIDATOR AGENT.
+You are a VALIDATOR AGENT.
 
 INPUT:
     - USER REQUEST: {user_request}
-    - GENERATED CODE: CODER AGENT OUTPUT
-
+    - CODE OUTPUT: CODE EXECUTOR OUTPUT
+    - CODE : FROM CODER AGENT
 ROLE:
-    - When you start/ask to validate the code, first Run the generated code correctly and check whether it satisfies the USER REQUEST.
+    - When you start/ask to validate the code check whether it satisfies the USER REQUEST.
     - If the code is not able to run or gives error then respond what's the error and root cause.
     - Perform strict technical validation.
-    - YOU ARE ALLOWED TO CALL THE TOOL TO EXEC THE CODE.
 
 STEPS: 
-    1. Execute the code.
-    2. Wait till the code execution completes.
-    3. Check the output.
-    4. Compare the output with the USER REQUEST.
-    5. Respond the response with the format given.
+    1. Check the output.
+    2. Compare the output with the USER REQUEST.
+    3. Respond the response with the format given.
 
 STRICT RULES:
     - DO NOT modify or rewrite the code.
@@ -224,12 +233,11 @@ REJECTION CONDITIONS:
 ===============================================
 OUTPUT FORMAT AFTER CODE EXECCUTION (STRICT - NO DEVIATION):
 ===============================================
-VALIDATION RULES: STATUS IS MUST
-    - If execution returns error → STATUS: ERROR
-    - If output satisfies user request → STATUS: APPROVED
-    - Otherwise → STATUS: ERROR
 
 STATUS: <APPROVED/ERROR>
+        - If execution returns error -> STATUS: ERROR
+        - If output satisfies user request -> STATUS: APPROVED
+        - Otherwise -> STATUS: ERROR
 REASON: <brief, precise justification: either why code is correct or list specific issues>
 
 REQUEST: <USER REQUEST>
@@ -278,6 +286,50 @@ request_prompt = lambda request, code_output: f"""
         TERMINATION:
         - End immediately after the RESPONSE
             """
+class ExecutorAgent(AssistantAgent):
+    def __init__(self, name="Executor"):
+        super().__init__(name=name)
+
+    def execute_generated_code(self) -> str:
+        """
+        This func helps to run the code generated by the coder agent.
+        No need to pass anything
+        """
+        
+        import subprocess
+        import os
+
+        try:
+            code_path = os.path.join("generated_code", "main.py")
+
+            result = subprocess.run(
+                ["python", code_path],
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                errors='replace'
+            )
+
+            output = result.stdout.strip()
+            error = result.stderr.strip()
+
+            if error:
+                return f"ERROR:\n{error}\nOUTPUT:\n{output}"
+
+            print(output)
+            return f"OUTPUT:\n{output}"
+
+        except Exception as e:
+            return f"Execution exception: {str(e)}"
+
+
+    def respond(self):
+        """
+        This will be called by AutoGen when it's this agent's turn.
+        We just run the code and return the output.
+        """
+        output = self.execute_generated_code()  # call your function
+        return print(f"ExecutorAgent ran code, output:\n{output}")
 
 class Agents:
     def __init__(self, model='qwen3.5:cloud', base_url='http://localhost:11434/v1', api_key='gemma3', api_type='openai', price=[0.0, 0.0], OUTPUT_DIR='.'):
@@ -412,32 +464,26 @@ class Agents:
     def validate_agent(self, user_request):
         feedback_agent = autogen.AssistantAgent(
             name="FeedbackAgent",
-            llm_config=    {  **self.llm_config,
-            "functions": [
-                {
-                    "name": "execute_generated_code",
-                    "description": "Executes the generated Python code",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {},
-                        "required": []
-                    }
-                }
-            ]
-        },
+            llm_config=self.llm_config,
             system_message=validate_agent_prompt(user_request),
         )
-        feedback_agent.register_function(function_map={"python_code_executor": self.execute_generated_code})
+        # feedback_agent.register_function(function_map={"python_code_executor": self.execute_generated_code})
         return feedback_agent
 
     def executor_agent_init(self):
-        executor = autogen.UserProxyAgent(
-            name="Executor",
-            human_input_mode="NEVER",
-            code_execution_config={
-                "work_dir": "generated_code",
-                "use_docker": False})
-        return executor
+        executor_agent = autogen.UserProxyAgent(
+        name="Executor",
+        llm_config = self.llm_config,
+        code_execution_config={
+                "work_dir": self.OUTPUT_DIR,
+                "use_docker": False,
+            },
+        human_input_mode="NEVER",  # This agent doesn't take human input
+        system_message="Execute code using the tool.  Return the Output",      # This is treated as a callable tool
+    )
+
+        return executor_agent
+
 
     def result_agent_init(self, request, code_output):
         result_agent = autogen.AssistantAgent(

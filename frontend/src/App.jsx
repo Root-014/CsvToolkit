@@ -360,10 +360,26 @@ const FileViewer = ({
                  )}
               </div>
             </>
+          ) : selectedFilePath.toLowerCase().endsWith('.html') ? (
+            <div className="sheets-html-viewer" style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px', borderBottom: '1px solid var(--glass-border)' }}>
+                 <button 
+                   className="btn-primary" 
+                   onClick={() => window.open(`${API_BASE}/api/file_content?path=${encodeURIComponent(selectedFilePath)}`, '_blank')}
+                 >
+                   Open in New Tab
+                 </button>
+              </div>
+              <iframe 
+                src={`${API_BASE}/api/file_content?path=${encodeURIComponent(selectedFilePath)}`} 
+                style={{ flex: 1, border: 'none', backgroundColor: 'white', borderRadius: '0 0 8px 8px' }} 
+                title="HTML Viewer"
+              />
+            </div>
           ) : (
             <div className="sheets-empty">
                <FileText size={48} style={{ opacity: 0.2 }} />
-               <span>Click a CSV file on the left to view data.</span>
+               <span>Click a CSV or HTML file on the left to view data.</span>
             </div>
           )
         ) : (

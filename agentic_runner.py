@@ -6,6 +6,7 @@ import sys
 import io
 import subprocess
 from agents.worker_agent.worker_agents import Agents
+from agents.worker_agent.worker_agents import ExecutorAgent
 from autogen import GroupChat, GroupChatManager
 
 # Force UTF-8 output encoding to avoid UnicodeEncodeError on Windows
@@ -46,6 +47,7 @@ def analyze_request_groupchat(request, metadata_text):
         meta_agent = agent_factory.metadata_agent_init(metadata_text)
         coder_agent = agent_factory.coder_agent_init()
         feedback_agent = agent_factory.validate_agent(request)
+        executor_agent = agent_factory.executor_agent_init()
         
         # Setup Custom Speaker logic
         def custom_speaker(last_speaker, groupchat):
@@ -69,6 +71,8 @@ def analyze_request_groupchat(request, metadata_text):
                 if last_speaker == manager_agent:
                     return coder_agent
                 elif last_speaker == coder_agent:
+                    return executor_agent
+                elif last_speaker == executor_agent:
                     return feedback_agent
                 elif last_speaker == feedback_agent:
                     return manager_agent
@@ -76,7 +80,7 @@ def analyze_request_groupchat(request, metadata_text):
             return None
 
         groupchat = GroupChat(
-            agents=[user_proxy, manager_agent, meta_agent, coder_agent, feedback_agent],
+            agents=[user_proxy, manager_agent, meta_agent, coder_agent, executor_agent,feedback_agent],
             messages=[],
             max_round=12,
             speaker_selection_method=custom_speaker

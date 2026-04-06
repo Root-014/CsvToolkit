@@ -1,6 +1,6 @@
 # CSV Data Analysis Report
 
-**Generated**: 2026-04-02 13:37:37
+**Generated**: 2026-04-06 11:10:32
 
 **Source File**: `generated_code/Input\input.csv`
 
@@ -8,9 +8,9 @@
 
 ## Overview
 
-- **Total Rows**: 2,018,846
-- **Total Columns**: 12
-- **Shape**: 2,018,846 × 12
+- **Total Rows**: 2,176
+- **Total Columns**: 7
+- **Shape**: 2,176 × 7
 
 ---
 
@@ -20,28 +20,27 @@
 
 | Column Name | Data Type |
 |-------------|-----------|
-| BusinessOrg.[Business Org] | object |
-| Location.[Country] | object |
-| Location.[Geo Territory] | object |
 | Version.[Version Name] | object |
-| Channel.[MPU Level 3] | object |
-| Channel.[MPU] | object |
-| Item.[Product Planning Level] | object |
-| Item.[Consumer Offense Cd] | object |
+| Location.[Country] | object |
 | Time.[Week] | object |
-| Class.[Class] | object |
-| Product Customer L1 Segment | int64 |
-| Actual Cleansed | float64 |
+| GDP | float64 |
+| Holiday Type | object |
+| Is Holiday | float64 |
+| Marketplace Growth | float64 |
 
 ---
 
 ## Data Quality
 
-**Completeness**: 100.00%
+**Completeness**: 72.30%
 
 ### Missing Values
 
-[OK] No missing values found
+| Column | Missing Count | Missing Percentage |
+|--------|---------------|--------------------|
+| GDP | 2176 | 100.00% |
+| Holiday Type | 1022 | 46.97% |
+| Is Holiday | 1022 | 46.97% |
 
 ---
 
@@ -49,18 +48,13 @@
 
 | Column | Type | Is Time Column | Time Format |
 |--------|------|----------------|-------------|
-| BusinessOrg.[Business Org] | object | No | - |
-| Location.[Country] | object | No | - |
-| Location.[Geo Territory] | object | No | - |
 | Version.[Version Name] | object | No | - |
-| Channel.[MPU Level 3] | object | No | - |
-| Channel.[MPU] | object | No | - |
-| Item.[Product Planning Level] | object | No | - |
-| Item.[Consumer Offense Cd] | object | No | - |
+| Location.[Country] | object | No | - |
 | Time.[Week] | object | No | - |
-| Class.[Class] | object | No | - |
-| Product Customer L1 Segment | int64 | No | - |
-| Actual Cleansed | float64 | No | - |
+| GDP | float64 | No | - |
+| Holiday Type | object | No | - |
+| Is Holiday | float64 | No | - |
+| Marketplace Growth | float64 | No | - |
 
 ---
 
@@ -68,80 +62,58 @@
 
 | Column | Count | Min | Max | Missing |
 |--------|-------|-----|-----|---------|
-| Product Customer L1 Segment | 2018846 | N/A | N/A | 0 |
-| Actual Cleansed | 2018846 | N/A | N/A | 0 |
+| GDP | 0 | N/A | N/A | 2176 |
+| Is Holiday | 1154 | N/A | N/A | 1022 |
+| Marketplace Growth | 2176 | N/A | N/A | 0 |
 
 
 ---
 
 ## Categorical Columns Summary
 
-### BusinessOrg.[Business Org]
-
-- **Unique Values**: 2
-- **Sample Values**: GSA, NON-GSA
-
-### Location.[Country]
-
-- **Unique Values**: 14
-- **Sample Values**: REPUBLIC OF KOREA, JAPAN, BRAZIL, SINGAPORE, THAILAND
-
-### Location.[Geo Territory]
-
-- **Unique Values**: 7
-- **Sample Values**: KOREA, JAPAN, BRAZIL, SOUTHEAST ASIA INDIA, MEXICO
-
 ### Version.[Version Name]
 
 - **Unique Values**: 1
 - **Sample Values**: CurrentWorkingView
 
-### Channel.[MPU Level 3]
-
-- **Unique Values**: 313
-- **Sample Values**: NIKE.COM KOREA, NVS KOREA, KASINA, CAPO SPORTS TOWN, RACEMENT
-
-### Channel.[MPU]
-
-- **Unique Values**: 57
-- **Sample Values**: KR_ND_NDDC, KR_ND_Value, KR_NMP_Authenticating, KR_NMP_Key Partner, KR_NMP_Strategic Partner
-
-### Item.[Product Planning Level]
-
-- **Unique Values**: 199
-- **Sample Values**: Nike_KOBE_KIDS_APPAREL DIVISION_GLOBAL FOOTBALL, Nike_NOT_SUPPLD_MENS_APPAREL DIVISION_SPORTSWEAR, Nike_NOT_SUPPLD_MENS_EQUIPMENT DIVISION_GLOBAL FOOTBALL, Nike_NOT_SUPPLD_WOMENS_APPAREL DIVISION_GLOBAL FOOTBALL, Nike_NOT_SUPPLD_MENS_APPAREL DIVISION_GLOBAL FOOTBALL
-
-### Item.[Consumer Offense Cd]
+### Location.[Country]
 
 - **Unique Values**: 4
-- **Sample Values**: KIDS, MENS, WOMENS, NOT_SUPPLD
+- **Sample Values**: APLA, EUROPEAFRICA, NORTH AMERICA, GREATER CHINA
 
 ### Time.[Week]
 
-- **Unique Values**: 156
-- **Sample Values**: 12-Oct-25, 24-Aug-25, 14-Sep-25, 17-Aug-25, 09-Nov-25
+- **Unique Values**: 544
+- **Sample Values**: 29-Dec-19, 05-Jan-20, 12-Jan-20, 19-Jan-20, 26-Jan-20
 
-### Class.[Class]
+### Holiday Type
 
-- **Unique Values**: 6
-- **Sample Values**: NEW LAUNCH, DISC, BY, AY, BX
+- **Unique Values**: 188
+- **Sample Values**: Air Max Day, Mother's Day, Memorial Day, Sveriges nationaldag, Dragon Boat Festival
 
 ---
 
 ## Numeric Columns Summary
 
-### Product Customer L1 Segment
+### GDP
 
-- **Count**: 2018846
-- **Min**: 1
-- **Max**: 1
-- **Missing Count**: 0
+- **Count**: 0
+- **Min**: nan
+- **Max**: nan
+- **Missing Count**: 2176
 
-### Actual Cleansed
+### Is Holiday
 
-- **Count**: 2018846
-- **Min**: 0.0
-- **Max**: 165848.0
+- **Count**: 1154
+- **Min**: 1.0
+- **Max**: 28.0
+- **Missing Count**: 1022
+
+### Marketplace Growth
+
+- **Count**: 2176
+- **Min**: -0.152
+- **Max**: 0.1119999999999999
 - **Missing Count**: 0
 
 ---
@@ -152,7 +124,7 @@
 
 - **Data Type**: object
 - **Format**: string/object (time-like)
-- **Sample Values**: ['12-Oct-25', '24-Aug-25', '14-Sep-25', '17-Aug-25', '09-Nov-25']
+- **Sample Values**: ['29-Dec-19', '29-Dec-19', '29-Dec-19', '29-Dec-19', '05-Jan-20']
 - **Missing Count**: 0
 
 ---
@@ -170,23 +142,23 @@
 
 ### First 5 Rows
 
-|    | BusinessOrg.[Business Org]   | Location.[Country]   | Location.[Geo Territory]   | Version.[Version Name]   | Channel.[MPU Level 3]   | Channel.[MPU]   | Item.[Product Planning Level]                   | Item.[Consumer Offense Cd]   | Time.[Week]   | Class.[Class]   |   Product Customer L1 Segment |   Actual Cleansed |
-|---:|:-----------------------------|:---------------------|:---------------------------|:-------------------------|:------------------------|:----------------|:------------------------------------------------|:-----------------------------|:--------------|:----------------|------------------------------:|------------------:|
-|  0 | GSA                          | REPUBLIC OF KOREA    | KOREA                      | CurrentWorkingView       | NIKE.COM KOREA          | KR_ND_NDDC      | Nike_KOBE_KIDS_APPAREL DIVISION_GLOBAL FOOTBALL | KIDS                         | 12-Oct-25     | NEW LAUNCH      |                             1 |                 0 |
-|  1 | GSA                          | REPUBLIC OF KOREA    | KOREA                      | CurrentWorkingView       | NIKE.COM KOREA          | KR_ND_NDDC      | Nike_KOBE_KIDS_APPAREL DIVISION_GLOBAL FOOTBALL | KIDS                         | 24-Aug-25     | NEW LAUNCH      |                             1 |                 3 |
-|  2 | GSA                          | REPUBLIC OF KOREA    | KOREA                      | CurrentWorkingView       | NIKE.COM KOREA          | KR_ND_NDDC      | Nike_KOBE_KIDS_APPAREL DIVISION_GLOBAL FOOTBALL | KIDS                         | 14-Sep-25     | NEW LAUNCH      |                             1 |                 4 |
-|  3 | GSA                          | REPUBLIC OF KOREA    | KOREA                      | CurrentWorkingView       | NIKE.COM KOREA          | KR_ND_NDDC      | Nike_KOBE_KIDS_APPAREL DIVISION_GLOBAL FOOTBALL | KIDS                         | 17-Aug-25     | NEW LAUNCH      |                             1 |                 7 |
-|  4 | GSA                          | REPUBLIC OF KOREA    | KOREA                      | CurrentWorkingView       | NIKE.COM KOREA          | KR_ND_NDDC      | Nike_KOBE_KIDS_APPAREL DIVISION_GLOBAL FOOTBALL | KIDS                         | 09-Nov-25     | NEW LAUNCH      |                             1 |                14 |
+|    | Version.[Version Name]   | Location.[Country]   | Time.[Week]   |   GDP |   Holiday Type |   Is Holiday |   Marketplace Growth |
+|---:|:-------------------------|:---------------------|:--------------|------:|---------------:|-------------:|---------------------:|
+|  0 | CurrentWorkingView       | APLA                 | 29-Dec-19     |   nan |            nan |          nan |                0.088 |
+|  1 | CurrentWorkingView       | EUROPEAFRICA         | 29-Dec-19     |   nan |            nan |          nan |                0.059 |
+|  2 | CurrentWorkingView       | NORTH AMERICA        | 29-Dec-19     |   nan |            nan |          nan |                0.033 |
+|  3 | CurrentWorkingView       | GREATER CHINA        | 29-Dec-19     |   nan |            nan |          nan |               -0.011 |
+|  4 | CurrentWorkingView       | APLA                 | 05-Jan-20     |   nan |            nan |          nan |                0.088 |
 
 ### Last 5 Rows
 
-|         | BusinessOrg.[Business Org]   | Location.[Country]   | Location.[Geo Territory]   | Version.[Version Name]   | Channel.[MPU Level 3]   | Channel.[MPU]          | Item.[Product Planning Level]                | Item.[Consumer Offense Cd]   | Time.[Week]   | Class.[Class]   |   Product Customer L1 Segment |   Actual Cleansed |
-|--------:|:-----------------------------|:---------------------|:---------------------------|:-------------------------|:------------------------|:-----------------------|:---------------------------------------------|:-----------------------------|:--------------|:----------------|------------------------------:|------------------:|
-| 2018841 | NON-GSA                      | INDONESIA            | SOUTHEAST ASIA INDIA       | CurrentWorkingView       | ID NSP VALUE - CV MITRA | SEAI_NSP_Value Partner | Nike_NOT_SUPPLD_KIDS_FOOTWEAR DIVISION_SKATE | KIDS                         | 10-Nov-24     | BY              |                             1 |              0.46 |
-| 2018842 | NON-GSA                      | INDONESIA            | SOUTHEAST ASIA INDIA       | CurrentWorkingView       | ID NSP VALUE - CV MITRA | SEAI_NSP_Value Partner | Nike_NOT_SUPPLD_KIDS_FOOTWEAR DIVISION_SKATE | KIDS                         | 14-Sep-25     | BY              |                             1 |              0    |
-| 2018843 | NON-GSA                      | INDONESIA            | SOUTHEAST ASIA INDIA       | CurrentWorkingView       | ID NSP VALUE - CV MITRA | SEAI_NSP_Value Partner | Nike_NOT_SUPPLD_KIDS_FOOTWEAR DIVISION_SKATE | KIDS                         | 23-Mar-25     | BY              |                             1 |              1.54 |
-| 2018844 | NON-GSA                      | INDONESIA            | SOUTHEAST ASIA INDIA       | CurrentWorkingView       | ID NSP VALUE - CV MITRA | SEAI_NSP_Value Partner | Nike_NOT_SUPPLD_KIDS_FOOTWEAR DIVISION_SKATE | KIDS                         | 30-Jun-24     | BY              |                             1 |              0.32 |
-| 2018845 | NON-GSA                      | INDONESIA            | SOUTHEAST ASIA INDIA       | CurrentWorkingView       | ID NSP VALUE - CV MITRA | SEAI_NSP_Value Partner | Nike_NOT_SUPPLD_KIDS_FOOTWEAR DIVISION_SKATE | KIDS                         | 18-May-25     | BY              |                             1 |              0    |
+|      | Version.[Version Name]   | Location.[Country]   | Time.[Week]   |   GDP | Holiday Type           |   Is Holiday |   Marketplace Growth |
+|-----:|:-------------------------|:---------------------|:--------------|------:|:-----------------------|-------------:|---------------------:|
+| 2171 | CurrentWorkingView       | GREATER CHINA        | 19-May-30     |   nan | nan                    |          nan |                0.04  |
+| 2172 | CurrentWorkingView       | APLA                 | 26-May-30     |   nan | Kenaikan Yesus Kristus |            2 |                0.077 |
+| 2173 | CurrentWorkingView       | EUROPEAFRICA         | 26-May-30     |   nan | nan                    |          nan |                0.048 |
+| 2174 | CurrentWorkingView       | NORTH AMERICA        | 26-May-30     |   nan | Memorial Day           |            1 |                0.021 |
+| 2175 | CurrentWorkingView       | GREATER CHINA        | 26-May-30     |   nan | nan                    |          nan |                0.04  |
 
 ---
 
