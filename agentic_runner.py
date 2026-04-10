@@ -27,6 +27,7 @@ def load_metadata():
             return f.read()
     return "No metadata available. Please upload a CSV first."
 
+SPEAKERS = []
 def analyze_request_groupchat(request, metadata_text):
     print(f"\n[INFO] Initializing Agents from Worker Agents class...")
     
@@ -52,7 +53,8 @@ def analyze_request_groupchat(request, metadata_text):
         # Setup Custom Speaker logic
         def custom_speaker(last_speaker, groupchat):
             messages = groupchat.messages
-            
+            SPEAKERS.append(last_speaker)
+
             if last_speaker == user_proxy:
                 return manager_agent
 
@@ -61,11 +63,10 @@ def analyze_request_groupchat(request, metadata_text):
             if last_speaker == coder_agent:
                 agent_factory.extract_and_save_code(last_msg)
 
-            if "METADATA_READY" not in str(messages):
+            if meta_agent not in SPEAKERS:
                 if last_speaker == manager_agent:
                     return meta_agent
-                
-            if ("APPROVED" not in last_msg) or ("METADATA_READY" in last_msg):
+            else:                
                 if last_speaker == meta_agent:
                     return manager_agent
                 if last_speaker == manager_agent:

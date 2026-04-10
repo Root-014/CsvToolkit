@@ -1,6 +1,6 @@
 # CSV Data Analysis Report
 
-**Generated**: 2026-04-06 11:10:32
+**Generated**: 2026-04-09 18:57:22
 
 **Source File**: `generated_code/Input\input.csv`
 
@@ -8,9 +8,9 @@
 
 ## Overview
 
-- **Total Rows**: 2,176
-- **Total Columns**: 7
-- **Shape**: 2,176 × 7
+- **Total Rows**: 51
+- **Total Columns**: 4
+- **Shape**: 51 × 4
 
 ---
 
@@ -21,26 +21,21 @@
 | Column Name | Data Type |
 |-------------|-----------|
 | Version.[Version Name] | object |
-| Location.[Country] | object |
-| Time.[Week] | object |
-| GDP | float64 |
-| Holiday Type | object |
-| Is Holiday | float64 |
-| Marketplace Growth | float64 |
+| Time.[Retail Planning Month] | object |
+| MFP_Geo_Net_Sls_Unt_HS | float64 |
+| MFP_Geo_Net_Sls_Rtl_HS | float64 |
 
 ---
 
 ## Data Quality
 
-**Completeness**: 72.30%
+**Completeness**: 98.53%
 
 ### Missing Values
 
 | Column | Missing Count | Missing Percentage |
 |--------|---------------|--------------------|
-| GDP | 2176 | 100.00% |
-| Holiday Type | 1022 | 46.97% |
-| Is Holiday | 1022 | 46.97% |
+| MFP_Geo_Net_Sls_Rtl_HS | 3 | 5.88% |
 
 ---
 
@@ -49,12 +44,9 @@
 | Column | Type | Is Time Column | Time Format |
 |--------|------|----------------|-------------|
 | Version.[Version Name] | object | No | - |
-| Location.[Country] | object | No | - |
-| Time.[Week] | object | No | - |
-| GDP | float64 | No | - |
-| Holiday Type | object | No | - |
-| Is Holiday | float64 | No | - |
-| Marketplace Growth | float64 | No | - |
+| Time.[Retail Planning Month] | object | No | - |
+| MFP_Geo_Net_Sls_Unt_HS | float64 | No | - |
+| MFP_Geo_Net_Sls_Rtl_HS | float64 | No | - |
 
 ---
 
@@ -62,9 +54,8 @@
 
 | Column | Count | Min | Max | Missing |
 |--------|-------|-----|-----|---------|
-| GDP | 0 | N/A | N/A | 2176 |
-| Is Holiday | 1154 | N/A | N/A | 1022 |
-| Marketplace Growth | 2176 | N/A | N/A | 0 |
+| MFP_Geo_Net_Sls_Unt_HS | 51 | N/A | N/A | 0 |
+| MFP_Geo_Net_Sls_Rtl_HS | 48 | N/A | N/A | 3 |
 
 
 ---
@@ -76,55 +67,38 @@
 - **Unique Values**: 1
 - **Sample Values**: CurrentWorkingView
 
-### Location.[Country]
+### Time.[Retail Planning Month]
 
-- **Unique Values**: 4
-- **Sample Values**: APLA, EUROPEAFRICA, NORTH AMERICA, GREATER CHINA
-
-### Time.[Week]
-
-- **Unique Values**: 544
-- **Sample Values**: 29-Dec-19, 05-Jan-20, 12-Jan-20, 19-Jan-20, 26-Jan-20
-
-### Holiday Type
-
-- **Unique Values**: 188
-- **Sample Values**: Air Max Day, Mother's Day, Memorial Day, Sveriges nationaldag, Dragon Boat Festival
+- **Unique Values**: 51
+- **Sample Values**: Jul-23, Aug-23, Sep-23, Oct-23, Nov-23
 
 ---
 
 ## Numeric Columns Summary
 
-### GDP
+### MFP_Geo_Net_Sls_Unt_HS
 
-- **Count**: 0
-- **Min**: nan
-- **Max**: nan
-- **Missing Count**: 2176
-
-### Is Holiday
-
-- **Count**: 1154
-- **Min**: 1.0
-- **Max**: 28.0
-- **Missing Count**: 1022
-
-### Marketplace Growth
-
-- **Count**: 2176
-- **Min**: -0.152
-- **Max**: 0.1119999999999999
+- **Count**: 51
+- **Min**: 3833989.738848
+- **Max**: 367620542.79847705
 - **Missing Count**: 0
+
+### MFP_Geo_Net_Sls_Rtl_HS
+
+- **Count**: 48
+- **Min**: 14397953742.933329
+- **Max**: 20213330915.470524
+- **Missing Count**: 3
 
 ---
 
 ## Time Columns Summary
 
-### Time.[Week]
+### Time.[Retail Planning Month]
 
 - **Data Type**: object
 - **Format**: string/object (time-like)
-- **Sample Values**: ['29-Dec-19', '29-Dec-19', '29-Dec-19', '29-Dec-19', '05-Jan-20']
+- **Sample Values**: ['Jul-23', 'Aug-23', 'Sep-23', 'Oct-23', 'Nov-23']
 - **Missing Count**: 0
 
 ---
@@ -142,23 +116,23 @@
 
 ### First 5 Rows
 
-|    | Version.[Version Name]   | Location.[Country]   | Time.[Week]   |   GDP |   Holiday Type |   Is Holiday |   Marketplace Growth |
-|---:|:-------------------------|:---------------------|:--------------|------:|---------------:|-------------:|---------------------:|
-|  0 | CurrentWorkingView       | APLA                 | 29-Dec-19     |   nan |            nan |          nan |                0.088 |
-|  1 | CurrentWorkingView       | EUROPEAFRICA         | 29-Dec-19     |   nan |            nan |          nan |                0.059 |
-|  2 | CurrentWorkingView       | NORTH AMERICA        | 29-Dec-19     |   nan |            nan |          nan |                0.033 |
-|  3 | CurrentWorkingView       | GREATER CHINA        | 29-Dec-19     |   nan |            nan |          nan |               -0.011 |
-|  4 | CurrentWorkingView       | APLA                 | 05-Jan-20     |   nan |            nan |          nan |                0.088 |
+|    | Version.[Version Name]   | Time.[Retail Planning Month]   |   MFP_Geo_Net_Sls_Unt_HS |   MFP_Geo_Net_Sls_Rtl_HS |
+|---:|:-------------------------|:-------------------------------|-------------------------:|-------------------------:|
+|  0 | CurrentWorkingView       | Jul-23                         |              3.34956e+08 |              1.72808e+10 |
+|  1 | CurrentWorkingView       | Aug-23                         |              3.34956e+08 |              1.72808e+10 |
+|  2 | CurrentWorkingView       | Sep-23                         |              3.34956e+08 |              1.72808e+10 |
+|  3 | CurrentWorkingView       | Oct-23                         |              3.67621e+08 |              2.02133e+10 |
+|  4 | CurrentWorkingView       | Nov-23                         |              3.67621e+08 |              2.02133e+10 |
 
 ### Last 5 Rows
 
-|      | Version.[Version Name]   | Location.[Country]   | Time.[Week]   |   GDP | Holiday Type           |   Is Holiday |   Marketplace Growth |
-|-----:|:-------------------------|:---------------------|:--------------|------:|:-----------------------|-------------:|---------------------:|
-| 2171 | CurrentWorkingView       | GREATER CHINA        | 19-May-30     |   nan | nan                    |          nan |                0.04  |
-| 2172 | CurrentWorkingView       | APLA                 | 26-May-30     |   nan | Kenaikan Yesus Kristus |            2 |                0.077 |
-| 2173 | CurrentWorkingView       | EUROPEAFRICA         | 26-May-30     |   nan | nan                    |          nan |                0.048 |
-| 2174 | CurrentWorkingView       | NORTH AMERICA        | 26-May-30     |   nan | Memorial Day           |            1 |                0.021 |
-| 2175 | CurrentWorkingView       | GREATER CHINA        | 26-May-30     |   nan | nan                    |          nan |                0.04  |
+|    | Version.[Version Name]   | Time.[Retail Planning Month]   |   MFP_Geo_Net_Sls_Unt_HS |   MFP_Geo_Net_Sls_Rtl_HS |
+|---:|:-------------------------|:-------------------------------|-------------------------:|-------------------------:|
+| 46 | CurrentWorkingView       | May-27                         |              3.16692e+08 |              1.64101e+10 |
+| 47 | CurrentWorkingView       | Jun-27                         |              3.16692e+08 |              1.64101e+10 |
+| 48 | CurrentWorkingView       | Jul-27                         |              3.83399e+06 |            nan           |
+| 49 | CurrentWorkingView       | Aug-27                         |              3.83399e+06 |            nan           |
+| 50 | CurrentWorkingView       | Sep-27                         |              3.83399e+06 |            nan           |
 
 ---
 

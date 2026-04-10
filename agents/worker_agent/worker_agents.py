@@ -43,12 +43,11 @@ EXAMPLE:
 WORKFLOW (MANDATORY)
 ====================================
 
-1. Ask MetaAgent first for ALL required dataset details in ONE message
-    * Ask them in a pointed way
+1. Ask MetaAgent first for ALL required dataset details in a single shot should be in Bullet points one by one.
 2. After receiving response:
     * Store the information
     * Always pass the format of the Time column to the coder agent.
-    * Respond: METADATA_READY
+    * Respond: METADATA_READY (MUST)
 3. NEVER call MetaAgent again
 4. Ask Coder to generate code using metadata and user request
     - Explain the task very clearly to the coder agent (step by step).
@@ -76,10 +75,10 @@ COMMUNICATION RULES (STRICT)
 ====================================
 
 - Speak to ONLY ONE agent at a time
+- Your Question/Instruction should be in Bullet points one by one.
 - ALWAYS prefix messages exactly as:
     MetaAgent:
     Coder:
-
 - NEVER answer your own questions
 - NEVER skip steps
 - ALWAYS wait for agent response
@@ -363,6 +362,11 @@ class Agents:
         content = msg.get("content", "")
         return "TERMINATE" in content or "APPROVED" in content or "EXIT" in content
 
+    def is_termination_msg_v2(self, msg):
+        content = msg.get("content", "").strip()
+        # Exact match on dedicated line
+        return bool(re.search(r'^(STATUS:\s*APPROVED|TERMINATE|EXIT)$', content, re.MULTILINE))
+
     def extract_code_from_response(self, response: str) -> str:
         try:
             match = re.search(r"```python(.*?)```", response, re.DOTALL)
@@ -427,7 +431,7 @@ class Agents:
             name="UserProxy",
             human_input_mode="NEVER",
             max_consecutive_auto_reply=5,
-            is_termination_msg=self.is_termination_msg,
+            is_termination_msg=self.is_termination_msg_v2,
             code_execution_config={
                 "work_dir": self.OUTPUT_DIR,
                 "use_docker": False,
@@ -455,7 +459,7 @@ class Agents:
             name="Coder",
             llm_config=self.llm_config_2,
             system_message=coder_agent_prompt,
-            is_termination_msg=self.is_termination_msg,
+            is_termination_msg=self.is_termination_msg_v2,
 
         )
         coder_agent.register_function(function_map={"extract_and_save_code": self.extract_and_save_code})

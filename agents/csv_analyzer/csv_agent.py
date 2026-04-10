@@ -54,11 +54,13 @@ class CSVAnalysisAgent:
             print(f"[ERROR] Error loading CSV: {e}")
             raise
 
-    def analyze(self, detailed=True):
+    def analyze(self, detailed=True, progress_callback=None):
         """Perform comprehensive EDA on the CSV data.
 
         Args:
             detailed (bool): Whether to perform detailed analysis (default: True)
+            progress_callback (callable): Optional callback for progress updates
+
 
         Returns:
             dict: Dictionary containing all analysis results
@@ -83,6 +85,7 @@ class CSVAnalysisAgent:
             'data_preview': {}
         }
 
+        if progress_callback: progress_callback("[1/10] Getting basic information...")
         print("\n[1/10] Getting basic information...")
         self.analysis_results['basic_info'] = {
             'columns': get_column_names(self.data),
@@ -91,27 +94,34 @@ class CSVAnalysisAgent:
             'total_columns': len(self.data.columns)
         }
 
+        if progress_callback: progress_callback("[2/10] Analyzing data types...")
         print("[2/10] Analyzing data types...")
         self.analysis_results['data_types'] = get_data_types(self.data)
 
+        if progress_callback: progress_callback("[3/10] Checking data quality...")
         print("[3/10] Checking data quality...")
         self.analysis_results['data_quality'] = {
             'missing_values': get_missing_values(self.data),
             'completeness': (1 - self.data.isnull().sum().sum() / (self.data.shape[0] * self.data.shape[1])) * 100
         }
 
+        if progress_callback: progress_callback("[4/10] Generating statistical summary...")
         print("[4/10] Generating statistical summary...")
         self.analysis_results['statistical_summary'] = get_summary_stats(self.data)
 
+        if progress_callback: progress_callback("[5/10] Analyzing categorical columns...")
         print("[5/10] Analyzing categorical columns...")
         self.analysis_results['categorical_summary'] = get_categorical_summary(self.data)
 
+        if progress_callback: progress_callback("[6/10] Analyzing numeric columns...")
         print("[6/10] Analyzing numeric columns...")
         self.analysis_results['numeric_summary'] = get_numeric_summary(self.data)
 
+        if progress_callback: progress_callback("[7/10] Detecting time columns...")
         print("[7/10] Detecting time columns...")
         self.analysis_results['time_summary'] = get_time_summary(self.data)
 
+        if progress_callback: progress_callback("[8/10] Checking for duplicates...")
         print("[8/10] Checking for duplicates...")
         dup_count = find_duplicates(self.data).shape[0]
         self.analysis_results['duplicates'] = {
@@ -119,12 +129,14 @@ class CSVAnalysisAgent:
             'percentage': (dup_count / len(self.data)) * 100
         }
 
+        if progress_callback: progress_callback("[9/10] Generating data preview...")
         print("[9/10] Generating data preview...")
         self.analysis_results['data_preview'] = {
             'head': display_head(self.data, 5),
             'tail': display_tail(self.data, 5)
         }
 
+        if progress_callback: progress_callback("[10/10] Analysis complete!")
         print("[10/10] Analysis complete!")
         print("=" * 60)
 

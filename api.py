@@ -61,9 +61,18 @@ os.makedirs(INPUT_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Note: We will serve the Vite build folder in production, but for dev we use CORS
+upload_progress_tracker = {}
+
+@app.get("/api/upload_progress")
+async def get_upload_progress(filename: str):
+    return {"status": "success", "progress": upload_progress_tracker.get(filename, [])}
 
 @app.post("/upload")
 async def upload_csv(file: UploadFile = File(...)):
+    filename = file.filename
+    if not filename: filename = "input.csv"
+    upload_progress_tracker[filename] = []
+    
     file_location = os.path.join(INPUT_DIR, "input.csv")
     with open(file_location, "wb+") as file_object:
         file_object.write(file.file.read())
@@ -72,7 +81,9 @@ async def upload_csv(file: UploadFile = File(...)):
     try:
         agent = CSVAnalysisAgent()
         agent.load_csv(file_location)
-        results = agent.analyze(detailed=True)
+        def progress_callback(msg):
+            upload_progress_tracker[filename].append(msg)
+        results = agent.analyze(detailed=True, progress_callback=progress_callback)
         report_path = "analysis.md"
         agent.generate_report(output_path=report_path)
         

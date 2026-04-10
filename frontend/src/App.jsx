@@ -397,6 +397,7 @@ const FileViewer = ({
 function App() {
   const [file, setFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadLogs, setUploadLogs] = useState([]);
   const [markdownContent, setMarkdownContent] = useState("");
   const [query, setQuery] = useState("");
   const [isRunning, setIsRunning] = useState(false);
@@ -535,12 +536,25 @@ function App() {
     
     setFile(selectedFile);
     setIsUploading(true);
+    setUploadLogs([]);
     
     const formData = new FormData();
     formData.append('file', selectedFile);
     
+    const pollInterval = setInterval(async () => {
+        try {
+            const res = await axios.get(`${API_BASE}/api/upload_progress?filename=${encodeURIComponent(selectedFile.name)}`);
+            if (res.data.status === 'success') {
+                setUploadLogs(res.data.progress);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }, 200);
+
     try {
       const res = await axios.post(`${API_BASE}/upload`, formData);
+      clearInterval(pollInterval);
       if (res.data.status === 'success') {
         setMarkdownContent(res.data.markdown);
         setActiveTab('markdown');
@@ -552,6 +566,7 @@ function App() {
       alert("Failed to upload file.");
     } finally {
       setIsUploading(false);
+      clearInterval(pollInterval);
     }
   };
 
@@ -738,7 +753,23 @@ function App() {
                     onDrop={onDrop}
                   >
                     {isUploading ? (
-                      <div className="upload-text">Analyzing CSV... Please wait.</div>
+                      <div className="upload-progress-timeline">
+                        {uploadLogs.length === 0 ? (
+                           <div className="timeline-item active">
+                              <div className="timeline-indicator"><div className="pulse"></div></div>
+                              <div className="timeline-content">Initializing... Please wait.</div>
+                           </div>
+                        ) : (
+                           uploadLogs.map((log, idx) => (
+                             <div key={idx} className={`timeline-item ${idx === uploadLogs.length - 1 ? 'active' : 'completed'}`}>
+                                <div className="timeline-indicator">
+                                   {idx === uploadLogs.length - 1 ? <div className="pulse"></div> : <CheckCircle2 size={12} color="var(--success)" />}
+                                </div>
+                                <div className="timeline-content">{log.replace(/\[\d+\/\d+\] /, '')}</div>
+                             </div>
+                           ))
+                        )}
+                      </div>
                     ) : (
                       <>
                         <Upload size={32} className="upload-icon" />
