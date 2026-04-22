@@ -28,8 +28,8 @@ def load_metadata():
     return "No metadata available. Please upload a CSV first."
 
 SPEAKERS = []
-def analyze_request_groupchat(request, metadata_text):
-    print(f"\n[INFO] Initializing Agents from Worker Agents class...")
+def run_agent_workflow(initial_request, metadata_text):
+    print(f"\n[INFO] Initializing Agentic Session...")
     try:
         os.environ["AUTOGEN_USE_DOCKER"] = "0"
         
@@ -41,174 +41,138 @@ def analyze_request_groupchat(request, metadata_text):
             OUTPUT_DIR=OUTPUT_DIR
         )
 
-        # Initialize core agents for Phase 1
-        user_proxy = agent_factory.userproxy_agent_init()
-        phase1_manager = agent_factory.phase1_manager_init(request)
-        meta_agent = agent_factory.metadata_agent_init(metadata_text)
-        planner_agent = agent_factory.planner_agent_init(request)
-        
-        # Phase 1 GroupChat
-        SPEAKERS_PHASE1 = []
-        def custom_speaker_phase1(last_speaker, groupchat):
-            messages = groupchat.messages
-            SPEAKERS_PHASE1.append(last_speaker)
+        current_request = initial_request
+        is_first_turn = True
+
+        while True:
+            # Read current context
+            current_plan = agent_factory.read_verified_plan()
+            current_code = agent_factory.read_current_code()
             
-            if last_speaker == user_proxy:
-                return phase1_manager
+            # Initialize core agents for Phase 1
+            user_proxy = agent_factory.userproxy_agent_init()
+            phase1_manager = agent_factory.phase1_manager_init(current_request, is_followup=not is_first_turn)
+            metadata_specialist = agent_factory.metadata_agent_init(metadata_text)
+            planner_agent = agent_factory.planner_agent_init(current_request, current_plan=current_plan, current_code=current_code)
             
-            last_msg = messages[-1]["content"]
-            
-            if "PLAN_GENERATED" in last_msg:
-                agent_factory.extract_and_save_plan(last_msg)
-                return None # End Phase 1
-            
-            if meta_agent not in SPEAKERS_PHASE1:
+            # Phase 1 GroupChat
+            def custom_speaker_phase1(last_speaker, groupchat):
+                messages = groupchat.messages
+                if not messages: return phase1_manager
+                last_msg = messages[-1].get("content", "")
+
+                if last_speaker == user_proxy:
+                    return phase1_manager
                 if last_speaker == phase1_manager:
-                    return meta_agent
-            else:
-                if last_speaker == meta_agent:
+                    return metadata_specialist
+                if last_speaker == metadata_specialist:
                     return planner_agent
-                    
-            return None
-
-        groupchat1 = GroupChat(
-            agents=[user_proxy, phase1_manager, meta_agent, planner_agent],
-            messages=[],
-            max_round=6,
-            speaker_selection_method=custom_speaker_phase1
-        )
-
-        manager1 = GroupChatManager(
-            groupchat=groupchat1,
-            llm_config=agent_factory.llm_config,
-            system_message="""
-            PHASE 1 WORKFLOW
-            1. MANAGER CALLS META AGENT FOR INFO ABOUT THE DATASET
-            2. ONCE META AGENT RESPONDED SHOULD NOT BE CALLED AGAIN
-            3. MANAGER CALLS PLANNER AGENT TO CREATE AN IMPLEMENTATION PLAN
-            4. PLANNER GENERATES PLAN AND TASK CHECKLIST
-            """
-        )
-
-        user_proxy.initiate_chat(
-            manager1,
-            message=f"User Request: {request}\nInitiate conversation with Manager to get metadata and then instruct Planner to plan the implementation."
-        )
-
-        # Forcefully extract the plan directly from message history
-        plan_msg = next((m.get("content", "") for m in reversed(groupchat1.messages) if m.get("name") == "Planner"), None)
-        if plan_msg:
-            agent_factory.extract_and_save_plan(plan_msg)
-
-        # CHECKPOINT
-        print("[ACTION_REQUIRED: VERIFY PLAN]")
-        # This will block until the frontend sends 'yes' or 'no' over the duplex websocket
-        approval = input().strip().lower()
-        if approval not in ['yes', 'y']:
-            print("System (to UserProxy):\nPlan verification rejected by User. Terminating workflow.")
-            return
-
-        print("System (to UserProxy):\nPlan Approved. Beginning code generation phase.")
-
-        # Read the generated plan
-        plan_path = "implementation_plan.md"
-        if os.path.exists(plan_path):
-            with open(plan_path, "r", encoding="utf-8") as f:
-                plan_text = f.read()
-        else:
-            plan_text = "No plan found."
-
-        # Initialize remaining agents for Phase 2
-        phase2_manager = agent_factory.phase2_manager_init()
-        coder_agent = agent_factory.coder_agent_init()
-        feedback_agent = agent_factory.validate_agent(request)
-        executor_agent = agent_factory.executor_agent_init()
-
-        SPEAKERS_PHASE2 = [user_proxy]
-        def custom_speaker_phase2(last_speaker, groupchat):
-            messages = groupchat.messages
-            SPEAKERS_PHASE2.append(last_speaker)
-            
-            if last_speaker == user_proxy:
-                return phase2_manager
                 
-            last_msg_obj = messages[-1]
-            last_msg = last_msg_obj.get("content", "")
-            if last_speaker == coder_agent:
-                agent_factory.extract_and_save_code(last_msg)
-                
-            # if last_msg_obj.get("tool_calls"):
-            #     return executor_agent
+                if last_speaker == planner_agent:
+                    if "PLAN_GENERATED" in last_msg:
+                        return None # End Phase 1
+                    return metadata_specialist
+                return None
 
-            if last_speaker == phase2_manager:
-                return coder_agent
-            elif last_speaker == coder_agent:
-                return executor_agent
-            elif last_speaker == executor_agent:
-                return feedback_agent
-            elif last_speaker == feedback_agent:
-                return phase2_manager
-            return None
-
-        groupchat2 = GroupChat(
-            agents=[user_proxy, phase2_manager, coder_agent, executor_agent, feedback_agent],
-            messages=[],
-            max_round=10,
-            
-            speaker_selection_method=custom_speaker_phase2
-        )
-
-        manager2 = GroupChatManager(
-            groupchat=groupchat2,
-            llm_config=agent_factory.llm_config,
-            is_termination_msg=agent_factory.is_termination_msg_v3,
-            system_message="""
-            PHASE 2 WORKFLOW
-            1. MANAGER CALLS CODER TO EXECUTE THE VERIFIED PLAN
-            2. THE CODER CODES AND CALLS EXECUTOR
-            3. AFTER EXECUTOR, FEEDBACK AGENT VALIDATES
-            4. ONCE APPROVED, MANAGER PROVIDES FINAL RESPONSE AND EXITS
-            """
-        )
-
-        # Read the verified plan from disk before starting Phase 2
-        plan_content = "No plan found."
-        plan_path = "implementation_plan.md"
-        if os.path.exists(plan_path):
-            with open(plan_path, "r", encoding="utf-8") as f:
-                plan_content = f.read()
-
-        # Start Phase 2
-        user_proxy.initiate_chat(
-            manager2,
-            message=f"The user has reviewed and verified the implementation plan. \n\nVERIFIED PLAN CONTENT:\n{plan_content}\n\nManager, please coordinate with the Coder to implement this plan for user request: {request}"
-        )
-
-        # Final Local Execution mapping and formatting
-        code_path = os.path.join("generated_code", "main.py")
-        if os.path.exists(code_path):
-            result = subprocess.run(
-                ["python", code_path],
-                capture_output=True,
-                text=True,
-                encoding='utf-8',
-                errors='replace'
+            groupchat1 = GroupChat(
+                agents=[user_proxy, phase1_manager, metadata_specialist, planner_agent],
+                messages=[],
+                max_round=10,
+                speaker_selection_method=custom_speaker_phase1
             )
 
-            # Interpret Result
-            result_interpreter = agent_factory.result_agent_init(request, result.stdout)
-            final_response = result_interpreter.generate_reply(
-                messages=[{"role": "user", "content": "Generate the response for the user request based on the code output"}]
+            manager1 = GroupChatManager(
+                groupchat=groupchat1,
+                llm_config=agent_factory.get_llm_config(temperature=0),
+                system_message="PHASE 1: Planning and Metadata gathering."
             )
 
-            print("--------------------------------------------------------------------------------")
-            print("Manager (to UserProxy):")
-            if isinstance(final_response, dict):
-                print(final_response["content"])
-            else:
-                print(final_response)
+            user_proxy.initiate_chat(
+                manager1,
+                message=f"User Request: {current_request}\nInitiate conversation with Manager."
+            )
 
-        print("Task completed")
+            # Extract the plan from the last Planner message
+            planner_msgs = [m for m in groupchat1.messages if m.get("name") == "Planner"]
+            if planner_msgs:
+                plan_text = planner_msgs[-1].get("content", "")
+                agent_factory.extract_and_save_plan(plan_text)
+
+            # CHECKPOINT: PLAN APPROVAL
+            import sys
+            print("\n[ACTION_REQUIRED: VERIFY PLAN]", flush=True)
+            approval = sys.stdin.readline().strip().lower()
+            
+            if approval not in ['yes', 'y']:
+                print("[SYSTEM] Plan verification rejected or session terminated.", flush=True)
+                break
+
+            print("[SYSTEM] Plan Approved. Beginning execution phase.", flush=True)
+
+            # Phase 2: Execution
+            phase2_manager = agent_factory.phase2_manager_init()
+            coder_agent = agent_factory.coder_agent_init()
+            feedback_agent = agent_factory.validate_agent(current_request)
+            executor_agent = agent_factory.executor_agent_init()
+
+            def custom_speaker_phase2(last_speaker, groupchat):
+                messages = groupchat.messages
+                if last_speaker == user_proxy:
+                    return phase2_manager
+                last_msg = messages[-1].get("content", "")
+                if last_speaker == coder_agent:
+                    agent_factory.extract_and_save_code(last_msg)
+                
+                if last_speaker == phase2_manager:
+                    return coder_agent
+                elif last_speaker == coder_agent:
+                    return executor_agent
+                elif last_speaker == executor_agent:
+                    return feedback_agent
+                elif last_speaker == feedback_agent:
+                    return phase2_manager
+                return None
+
+            groupchat2 = GroupChat(
+                agents=[user_proxy, phase2_manager, coder_agent, executor_agent, feedback_agent],
+                messages=[],
+                max_round=12,
+                speaker_selection_method=custom_speaker_phase2
+            )
+
+            manager2 = GroupChatManager(
+                groupchat=groupchat2,
+                llm_config=agent_factory.get_llm_config(temperature=0),
+                is_termination_msg=agent_factory.is_termination_msg_v3,
+                system_message="PHASE 2: Implementation and Validation."
+            )
+
+            plan_content = agent_factory.read_verified_plan()
+            user_proxy.initiate_chat(
+                manager2,
+                message=f"PLAN:\n{plan_content}\n\nExecute the plan for request: {current_request}"
+            )
+
+            # Final response generation
+            code_path = os.path.join("generated_code", "main.py")
+            if os.path.exists(code_path):
+                result = subprocess.run(["python", code_path], capture_output=True, text=True, encoding='utf-8', errors='replace')
+                result_interpreter = agent_factory.result_agent_init(current_request, result.stdout)
+                final_response = result_interpreter.generate_reply(messages=[{"role": "user", "content": "Generate final response"}])
+                
+                print("--------------------------------------------------------------------------------")
+                print("Manager (to UserProxy):")
+                print(final_response["content"] if isinstance(final_response, dict) else final_response)
+                print("--------------------------------------------------------------------------------")
+
+            print("[WAITING_FOR_INPUT] Ready for follow-up questions.")
+            next_input = sys.stdin.readline().strip()
+            if not next_input or next_input.lower() in ['exit', 'quit', 'terminate']:
+                print("[SYSTEM] Session terminated.")
+                break
+            
+            current_request = next_input
+            is_first_turn = False
 
     except Exception as e:
         print(f"[ERROR] {e}")
@@ -219,7 +183,6 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         req = sys.argv[1]
     else:
-        abs_csv = os.path.abspath(os.path.join("generated_code", "Input", "input.csv")).replace("\\", "/")
-        req = f"Summarize the dataset. STRICT INSTRUCTION: The absolute filepath is '{abs_csv}'."
+        req = "Summarize the dataset."
     
-    analyze_request_groupchat(req, metadata)
+    run_agent_workflow(req, metadata)

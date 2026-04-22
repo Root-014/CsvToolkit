@@ -25,35 +25,32 @@ llm_config = {
     "max_tokens": 3000,
 }
 
-phase1_manager_prompt = lambda user_request, :"""
+phase1_manager_prompt = lambda user_request, is_followup=False: f"""
 YOU ARE THE PHASE 1 PLANNING MANAGER (STRICT CONTROLLER)
 USER REQUEST : {user_request}
+{"(THIS IS A FOLLOW-UP REQUEST. BUILD UPON THE EXISTING PLAN AND CODE.)" if is_followup else ""}
 
 ====================================
 YOUR TEAM:
 ====================================
-- MetaAgent: Dataset expert (ask about any info related to the dataset ONLY)
+- Metadata_Specialist: Dataset expert (ask about any info related to the dataset ONLY)
 - Planner: Implementation Plan Specialist
 
 ====================================
 WORKFLOW (MANDATORY)
 ====================================
-1. Immediately ask MetaAgent about any info related to the dataset ONLY which are cam be related to user request.
-    example : "I need to understand the input dataset. What is the exact column name for 'Fcst_BaselineFcst_Baseline' in the Final_Merge dataset?"
-2. Once the MetaAgent provides the metadata:
-    * Do not ask the MetaAgent for more info unless absolutely necessary.
-    * Signal ready status by responding: METADATA_READY
-3. Instruct the Planner to generate an implementation plan based on the metadata and user request.
+1. If this is the first turn or if metadata is missing, immediately ask Metadata_Specialist about the dataset.
+2. If metadata is already known or provided in history, proceed to step 3.
+3. Instruct the Planner to generate or update the implementation plan based on the metadata and user request.
 4. Finalize the plan and present it to the UserProxy.
-
-Note: NO TOOL AVAILABLE
 
 ====================================
 COMMUNICATION RULES (STRICT)
 ====================================
-- Speak to ONLY ONE agent at a time.
-- USE PLAIN LANGUAGE. Do NOT use colon-prefixed tags like "MetaAgent:" or "Planner:". Simply address them in your message (e.g., "MetaAgent, please provide the schema").
-- NEVER ask Coder (Coder does not exist yet).
+- YOU MUST COMMUNICATE ONLY VIA PLAIN TEXT MESSAGES.
+- NEVER USE TOOL CALLS OR FUNCTION CALLS.
+- NEVER USE JSON FORMAT FOR COMMUNICATION.
+- Address team members by name (e.g., "Metadata_Specialist, please provide the schema").
 - DO NOT GENERATE ANY PYTHON CODE.
 """
 
@@ -71,7 +68,7 @@ YOUR TEAM:
 WORKFLOW (MANDATORY)
 ====================================
 1. REVIEW the verified implementation plan provided in the initial message.
-2. Instruct the Coder to implement the logic based on that plan and any user comments.(Keep the instruction deep, clean and mention the dataset column names properly.)
+2. Instruct the Coder PROPERLY and COMPLETELY , to implement the logic based on that plan and any user comments.(Keep the instruction deep, clean and mention the dataset column names properly.)
 3. Coordinate between Coder, Executor, and Validator until the task is complete.
 4. On approval, provide the final response and exit.
 
@@ -116,13 +113,18 @@ metaagent_prompt = lambda metadata_text: f"""
         METADATA_READY
         """
 
-planner_prompt  =  lambda user_request: f"""
+planner_prompt = lambda user_request, current_plan=None, current_code=None: f"""
 You are a PLANNER SPECIALIST.
 
 USER REQUEST : {user_request}
 
+{f"CURRENT IMPLEMENTATION PLAN:\n{current_plan}\n" if current_plan else ""}
+{f"CURRENT CODE (main.py):\n{current_code}\n" if current_code else ""}
+
 ROLE:
-    - Based on the user's request  and the metadata provided by the MetaAgent, construct a clear implementation plan.
+    - Based on the user's request, the provided metadata, and the CURRENT STATE (plan/code if any), construct a clear implementation plan.
+    - If a plan or code already exists, determine if this is a follow-up. 
+    - If it is a follow-up, update the existing plan or create a new one that builds upon the current code.
     - Write exact data specifications, what columns to filter, sort, and process.
     - Break down the requirements into an actionable checklist.
     - Keep it clear and simple. DON'T make it complicated.
@@ -246,22 +248,26 @@ REJECTION CONDITIONS:
 
 
 ===============================================
-OUTPUT FORMAT AFTER CODE EXECCUTION (STRICT - NO DEVIATION):
+OUTPUT FORMAT AFTER CODE EXECUTION (STRICT - NO DEVIATION):
 ===============================================
 
-STATUS: <APPROVED/ERROR>
-        - If execution returns error -> STATUS: ERROR
-        - If output satisfies user request -> STATUS: APPROVED
-        - Otherwise -> STATUS: ERROR
-REASON: <brief, precise justification: either why code is correct or list specific issues>
+### 🛡️ Validation Report
 
-REQUEST: <USER REQUEST>
+**STATUS**: <APPROVED/ERROR>
+- **REASON**: <brief, precise justification: either why code is correct or list specific issues>
 
-RESPONSE:
+---
+#### 📋 Request Details
+- **USER REQUEST**: {user_request}
+
+---
+#### 🚀 Execution Response
+```text
 <complete code execution output, exactly as returned by the executed code>
+```
 
 TERMINATION:
-    - End immediately after output
+    - End immediately after response
         """
 
 request_prompt = lambda request, code_output: f"""
@@ -290,10 +296,14 @@ request_prompt = lambda request, code_output: f"""
     - Avoid repeating raw data unless necessary
 
     OUTPUT FORMAT (STRICT):
-        REQUEST: <USER REQUEST>
-        RESPONSE: <FINAL ANSWER BASED ONLY ON OUTPUT>
+        ### 🎯 Final Answer
+        **REQUEST**: {request}
+        
+        **RESPONSE**: 
+        <FINAL ANSWER BASED ONLY ON OUTPUT>
 
     FORMATTING RULES:
+        - Use Markdown for emphasis and structure.
         - Do not add extra headings or text unless it was needed.
         - Do not modify the REQUEST text.
         - Keep RESPONSE clean and readable.
@@ -347,6 +357,13 @@ class ExecutorAgent(AssistantAgent):
         return print(f"ExecutorAgent ran code, output:\n{output}")
 
 class Agents:
+    def get_llm_config(self, temperature=0.5, max_tokens=2000):
+        return {
+            "config_list": [self.config_list],
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+
     def __init__(self, model='qwen3.5:cloud', base_url='http://localhost:11434/v1', api_key='gemma3', api_type='openai', price=[0.0, 0.0], OUTPUT_DIR='.'):
         self.model = model
         self.base_url = base_url
@@ -360,16 +377,6 @@ class Agents:
             "api_key": self.api_key,
             "api_type": self.api_type,
             "price": self.price
-        }
-        self.llm_config = {
-            "config_list": self.config_list,
-            "temperature": 0.5,
-            "max_tokens": 2000,
-        }
-        self.llm_config_2 = {
-            "config_list": self.config_list,
-            "temperature": 0.7,
-            "max_tokens": 5000,
         }
 
     def is_termination_msg(self, msg):
@@ -395,7 +402,7 @@ class Agents:
 
         return (
             sender == "FeedbackAgent" and
-            any(line.strip() == "STATUS: APPROVED" for line in content.splitlines())
+            any(line.strip().replace("*", "") == "STATUS: APPROVED" for line in content.splitlines())
         )
 
     def extract_code_from_response(self, response: str) -> str:
@@ -438,15 +445,26 @@ class Agents:
             return f"Error saving plan: {str(e)}"
 
     def read_verified_plan(self) -> str:
-        """Read the verified implementation plan from discourse, including any user annotations."""
+        """Read the verified implementation plan from disk, including any user annotations."""
         try:
             plan_path = os.path.join(self.OUTPUT_DIR, "implementation_plan.md")
             if os.path.exists(plan_path):
                 with open(plan_path, "r", encoding="utf-8") as f:
                     return f.read()
-            return "No verified plan found."
+            return ""
         except Exception as e:
             return f"Error reading plan: {str(e)}"
+
+    def read_current_code(self) -> str:
+        """Read the current generated code from disk."""
+        try:
+            code_path = os.path.join(self.OUTPUT_DIR, "generated_code", "main.py")
+            if os.path.exists(code_path):
+                with open(code_path, "r", encoding="utf-8") as f:
+                    return f.read()
+            return ""
+        except Exception as e:
+            return f"Error reading code: {str(e)}"
 
     def execute_generated_code(self) -> str:
         """
@@ -491,33 +509,33 @@ class Agents:
             system_message="""Execute code when requested. Do not initiate conversations.""")
         return user_proxy
 
-    def phase1_manager_init(self,user_request):
+    def phase1_manager_init(self, user_request, is_followup=False):
         phase1_manager = autogen.AssistantAgent(
             name="MANAGER",
-            llm_config=self.llm_config,
-            system_message=phase1_manager_prompt(user_request))
+            llm_config=self.get_llm_config(temperature=0.5),
+            system_message=phase1_manager_prompt(user_request, is_followup=is_followup))
         return phase1_manager
 
     def phase2_manager_init(self):
         phase2_manager = autogen.AssistantAgent(
             name="MANAGER",
-            llm_config=self.llm_config,
+            llm_config=self.get_llm_config(temperature=0.5),
             system_message=phase2_manager_prompt)
         return phase2_manager
 
     def metadata_agent_init(self, metadata_text):
         meta_agent = autogen.AssistantAgent(
-            name="MetaAgent",
-            llm_config=self.llm_config,
+            name="Metadata_Specialist",
+            llm_config=self.get_llm_config(temperature=0.1),
             system_message=metaagent_prompt(metadata_text)
         )
         return meta_agent
 
-    def planner_agent_init(self,user_request):
+    def planner_agent_init(self, user_request, current_plan=None, current_code=None):
         planner_agent = autogen.AssistantAgent(
             name="Planner",
-            llm_config=self.llm_config,
-            system_message=planner_prompt(user_request)
+            llm_config=self.get_llm_config(temperature=0.5, max_tokens=3000),
+            system_message=planner_prompt(user_request, current_plan=current_plan, current_code=current_code)
         )
         planner_agent.register_function(function_map={"extract_and_save_plan": self.extract_and_save_plan})
         return planner_agent
@@ -525,7 +543,7 @@ class Agents:
     def coder_agent_init(self):
         coder_agent = autogen.AssistantAgent(
             name="Coder",
-            llm_config=self.llm_config_2,
+            llm_config=self.get_llm_config(temperature=0.7, max_tokens=5000),
             system_message=coder_agent_prompt,
             is_termination_msg=self.is_termination_msg_v3,
 
@@ -536,7 +554,7 @@ class Agents:
     def validate_agent(self, user_request):
         feedback_agent = autogen.AssistantAgent(
             name="FeedbackAgent",
-            llm_config=self.llm_config,
+            llm_config=self.get_llm_config(temperature=0.3),
             is_termination_msg=self.is_termination_msg,
             system_message=validate_agent_prompt(user_request),
         )
@@ -546,7 +564,7 @@ class Agents:
     def executor_agent_init(self):
         executor_agent = autogen.UserProxyAgent(
         name="Executor",
-        llm_config = self.llm_config,
+        llm_config = self.get_llm_config(temperature=0),
         code_execution_config={
                 "work_dir": self.OUTPUT_DIR,
                 "use_docker": False,
@@ -560,7 +578,7 @@ class Agents:
     def result_agent_init(self, request, code_output):
         result_agent = autogen.AssistantAgent(
             name="ResultInterpreter",
-            llm_config=self.llm_config,
+            llm_config=self.get_llm_config(temperature=0.5),
             system_message=request_prompt(request, code_output)
         )
         

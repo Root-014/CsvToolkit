@@ -74,8 +74,9 @@ async def upload_csv(file: UploadFile = File(...)):
     upload_progress_tracker[filename] = []
     
     file_location = os.path.join(INPUT_DIR, "input.csv")
-    with open(file_location, "wb+") as file_object:
-        file_object.write(file.file.read())
+    contents = await file.read()
+    with open(file_location, "wb") as file_object:
+        file_object.write(contents)
     
     # Run the CSV Analysis
     try:
@@ -177,56 +178,66 @@ async def websocket_endpoint(websocket: WebSocket):
         sub_env = os.environ.copy()
         sub_env["PYTHONIOENCODING"] = "utf-8"
         
-        # Start agentic_runner.py as a subprocess using Popen to bypass Windows asyncio loop bugs
+        # Start agentic_runner.py as a subprocess using Popen
         process = subprocess.Popen(
             ["python", "-u", "agentic_runner.py", enhanced_data],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            env=sub_env
+            env=sub_env,
+            bufsize=0 # Unbuffered for immediate interaction
         )
         
         async def read_stdout():
-            while True:
-                line = await asyncio.to_thread(process.stdout.readline)
-                if not line:
-                    break
-                
-                decoded_line = line.decode('utf-8', errors='replace').strip()
-                if decoded_line:
-                    await websocket.send_text(decoded_line)
-                    with open(log_file, "a", encoding="utf-8") as f:
-                        f.write(decoded_line + "\n")
-            await asyncio.to_thread(process.wait)
             try:
-                await websocket.send_text("[SYSTEM] Agent run completed.")
-            except Exception:
-                pass
+                while True:
+                    line = await asyncio.to_thread(process.stdout.readline)
+                    if not line:
+                        break
+                    
+                    decoded_line = line.decode('utf-8', errors='replace').strip()
+                    if decoded_line:
+                        print(f"Subprocess output: {decoded_line}")
+                        await websocket.send_text(decoded_line)
+                        with open(log_file, "a", encoding="utf-8") as f:
+                            f.write(decoded_line + "\n")
+            except Exception as e:
+                print(f"Error reading stdout: {e}")
+            finally:
+                try:
+                    await websocket.send_text("[SYSTEM] Agent session ended.")
+                except:
+                    pass
 
         async def read_ws():
             try:
-                while process.poll() is None:
-                    # using receive_text to listen for verification
+                while True:
                     msg = await websocket.receive_text()
-                    if process.stdin:
+                    print(f"Received from WS: {msg}")
+                    if process.poll() is None and process.stdin:
                         process.stdin.write(f"{msg}\n".encode('utf-8'))
                         process.stdin.flush()
+                    else:
+                        print("Subprocess already terminated or stdin unavailable.")
+                        break
             except WebSocketDisconnect:
-                pass
+                print("Client disconnected")
+                if process.poll() is None:
+                    process.terminate()
             except Exception as e:
-                print("Error reading websocket", e)
+                print(f"Error in websocket loop: {e}")
 
-        try:
-            # We run both the stdout reader and the websocket listener concurrently
-            await asyncio.gather(read_stdout(), read_ws())
-        except Exception as e:
-            try:
-                await websocket.send_text(f"[SYSTEM ERROR] {str(e)}")
-            except:
-                pass
-            
+        await asyncio.gather(read_stdout(), read_ws())
+        
     except WebSocketDisconnect:
-        print("Client disconnected")
+        print("Client disconnected (outer)")
+    except Exception as e:
+        print(f"Outer error: {e}")
+        try:
+            await websocket.send_text(f"[SYSTEM ERROR] {str(e)}")
+        except:
+            pass
+
 @app.get("/api/file_content")
 async def get_file_content(path: str):
     if not os.path.exists(path):
