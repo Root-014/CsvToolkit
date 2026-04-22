@@ -1,0 +1,29 @@
+================================================================================
+                        AUTO GEN CSV ANALYSIS SYSTEM
+                              READY TO USE!
+================================================================================
+
+QUICKEST WAY TO START:
+
+    python menu_interface.py
+
+Then select option 3: "Run Interactive Analysis (with LLM)"
+
+That's it! The system will:
+  1. Load your CSV from Input/input.csv
+  2. Ask for your analysis request
+  3. Generate and execute Python code automatically
+  4. Show you results
+
+EXAMPLE REQUESTS TO TRY:
+  "Show basic statistics for all numeric columns"
+  "Create a histogram of Location values"
+  "Find correlations between numeric columns"
+  "Group data by Channel and show summary"
+  "Show rows where Location > 5000"
+
+For more information, see:
+  - SYSTEM_SUMMARY.txt (detailed overview)
+  - AUTOGEN_README.md (complete documentation)
+
+================================================================================

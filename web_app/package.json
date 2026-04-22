@@ -1,0 +1,24 @@
+{
+  "name": "csv-analysis-webapp",
+  "version": "1.0.0",
+  "description": "Web application for CSV analysis using AutoGen",
+  "scripts": {
+    "start": "tsc && python backend/app.py",
+    "build": "tsc",
+    "dev": "tsc -w"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
+    "ws": "^8.14.2",
+    "marked": "^9.1.6",
+    "dompurify": "^3.0.5"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.0",
+    "@types/ws": "^8.5.10",
+    "@types/multer": "^1.4.11",
+    "typescript": "^5.3.2"
+  }
+}

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV Analysis with AutoGen</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 CSV Analysis Web Application</h1>
+            <p>Interactive CSV analysis powered by AutoGen</p>
+        </header>
+
+        <div class="upload-section" id="uploadSection">
+            <div class="upload-box">
+                <h2>Upload CSV File</h2>
+                <div class="upload-area" id="uploadArea">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <p>Drag & drop your CSV file here</p>
+                    <p class="or-text">or</p>
+                    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                        Choose File
+                    </button>
+                    <input type="file" id="fileInput" accept=".csv" style="display: none;">
+                </div>
+                <div id="fileInfo" class="file-info" style="display: none;"></div>
+            </div>
+        </div>
+
+        <div class="analysis-section" id="analysisSection" style="display: none;">
+            <div class="card">
+                <h2>Analysis Request</h2>
+                <textarea
+                    id="analysisRequest"
+                    placeholder="Enter your analysis request in plain English...
+
+Example: Show basic statistics for all numeric columns"
+                    rows="4"
+                ></textarea>
+                <button class="btn btn-success" id="analyzeBtn">
+                    Run Analysis
+                </button>
+            </div>
+        </div>
+
+        <div class="conversation-section" id="conversationSection" style="display: none;">
+            <div class="card">
+                <h2>Conversation</h2>
+                <div id="conversationHistory" class="conversation-history"></div>
+            </div>
+        </div>
+
+        <div class="results-section" id="resultsSection" style="display: none;">
+            <div class="card">
+                <div class="results-header">
+                    <h2>Analysis Results</h2>
+                    <button class="btn btn-secondary" id="downloadBtn" style="display: none;">
+                        Download Report
+                    </button>
+                </div>
+                <div id="markdownContent" class="markdown-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <p>Processing your request...</p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.5/dist/purify.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
