@@ -1,6 +1,6 @@
 # CSV Data Analysis Report
 
-**Generated**: 2026-04-22 23:28:00
+**Generated**: 2026-04-23 00:40:07
 
 **Source File**: `generated_code/Input\input.csv`
 
@@ -8,9 +8,9 @@
 
 ## Overview
 
-- **Total Rows**: 2,018,846
-- **Total Columns**: 12
-- **Shape**: 2,018,846 × 12
+- **Total Rows**: 155,589
+- **Total Columns**: 8
+- **Shape**: 155,589 × 8
 
 ---
 
@@ -21,17 +21,13 @@
 | Column Name | Data Type |
 |-------------|-----------|
 | BusinessOrg.[Business Org] | object |
-| Location.[Country] | object |
-| Location.[Geo Territory] | object |
+| Forecast Iteration.[Forecast Iteration] | object |
 | Version.[Version Name] | object |
+| Location.[Country] | object |
 | Channel.[MPU Level 3] | object |
-| Channel.[MPU] | object |
+| Time.[Partial Week] | object |
 | Item.[Product Planning Level] | object |
-| Item.[Consumer Offense Cd] | object |
-| Time.[Week] | object |
-| Class.[Class] | object |
-| Product Customer L1 Segment | int64 |
-| Actual Cleansed | float64 |
+| Ensemble Fcst Weighted | float64 |
 
 ---
 
@@ -50,17 +46,13 @@
 | Column | Type | Is Time Column | Time Format |
 |--------|------|----------------|-------------|
 | BusinessOrg.[Business Org] | object | No | - |
-| Location.[Country] | object | No | - |
-| Location.[Geo Territory] | object | No | - |
+| Forecast Iteration.[Forecast Iteration] | object | No | - |
 | Version.[Version Name] | object | No | - |
+| Location.[Country] | object | No | - |
 | Channel.[MPU Level 3] | object | No | - |
-| Channel.[MPU] | object | No | - |
+| Time.[Partial Week] | object | No | - |
 | Item.[Product Planning Level] | object | No | - |
-| Item.[Consumer Offense Cd] | object | No | - |
-| Time.[Week] | object | No | - |
-| Class.[Class] | object | No | - |
-| Product Customer L1 Segment | int64 | No | - |
-| Actual Cleansed | float64 | No | - |
+| Ensemble Fcst Weighted | float64 | No | - |
 
 ---
 
@@ -68,8 +60,7 @@
 
 | Column | Count | Min | Max | Missing |
 |--------|-------|-----|-----|---------|
-| Product Customer L1 Segment | 2018846 | N/A | N/A | 0 |
-| Actual Cleansed | 2018846 | N/A | N/A | 0 |
+| Ensemble Fcst Weighted | 155589 | N/A | N/A | 0 |
 
 
 ---
@@ -81,78 +72,56 @@
 - **Unique Values**: 2
 - **Sample Values**: GSA, NON-GSA
 
-### Location.[Country]
+### Forecast Iteration.[Forecast Iteration]
 
-- **Unique Values**: 14
-- **Sample Values**: REPUBLIC OF KOREA, JAPAN, BRAZIL, SINGAPORE, THAILAND
-
-### Location.[Geo Territory]
-
-- **Unique Values**: 7
-- **Sample Values**: KOREA, JAPAN, BRAZIL, SOUTHEAST ASIA INDIA, MEXICO
+- **Unique Values**: 1
+- **Sample Values**: FI-Default
 
 ### Version.[Version Name]
 
 - **Unique Values**: 1
-- **Sample Values**: CurrentWorkingView
+- **Sample Values**: Test
+
+### Location.[Country]
+
+- **Unique Values**: 3
+- **Sample Values**: CHINA, TAIWAN, HONG KONG
 
 ### Channel.[MPU Level 3]
 
-- **Unique Values**: 313
-- **Sample Values**: NIKE.COM KOREA, NVS KOREA, KASINA, CAPO SPORTS TOWN, RACEMENT
+- **Unique Values**: 8
+- **Sample Values**: Nike Direct - Stores, Nike Marketplace Partners, Douyin, Nike Retail Factory Stores, Tmall
 
-### Channel.[MPU]
+### Time.[Partial Week]
 
-- **Unique Values**: 57
-- **Sample Values**: KR_ND_NDDC, KR_ND_Value, KR_NMP_Authenticating, KR_NMP_Key Partner, KR_NMP_Strategic Partner
+- **Unique Values**: 93
+- **Sample Values**: 05-Apr-26, 12-Apr-26, 19-Apr-26, 26-Apr-26, 01-May-26
 
 ### Item.[Product Planning Level]
 
-- **Unique Values**: 199
-- **Sample Values**: Nike_KOBE_KIDS_APPAREL DIVISION_GLOBAL FOOTBALL, Nike_NOT_SUPPLD_MENS_APPAREL DIVISION_SPORTSWEAR, Nike_NOT_SUPPLD_MENS_EQUIPMENT DIVISION_GLOBAL FOOTBALL, Nike_NOT_SUPPLD_WOMENS_APPAREL DIVISION_GLOBAL FOOTBALL, Nike_NOT_SUPPLD_MENS_APPAREL DIVISION_GLOBAL FOOTBALL
-
-### Item.[Consumer Offense Cd]
-
-- **Unique Values**: 4
-- **Sample Values**: KIDS, MENS, WOMENS, NOT_SUPPLD
-
-### Time.[Week]
-
-- **Unique Values**: 156
-- **Sample Values**: 12-Oct-25, 24-Aug-25, 14-Sep-25, 17-Aug-25, 09-Nov-25
-
-### Class.[Class]
-
-- **Unique Values**: 6
-- **Sample Values**: NEW LAUNCH, DISC, BY, AY, BX
+- **Unique Values**: 180
+- **Sample Values**: Nike_NOT_SUPPLD_KIDS_APPAREL DIVISION_GLOBAL FOOTBALL, Nike_NOT_SUPPLD_WOMENS_APPAREL DIVISION_BASKETBALL, Nike_NOT_SUPPLD_KIDS_APPAREL DIVISION_BASKETBALL, Nike_NOT_SUPPLD_MENS_APPAREL DIVISION_GLOBAL FOOTBALL, Nike_NOT_SUPPLD_MENS_EQUIPMENT DIVISION_GLOBAL FOOTBALL
 
 ---
 
 ## Numeric Columns Summary
 
-### Product Customer L1 Segment
+### Ensemble Fcst Weighted
 
-- **Count**: 2018846
-- **Min**: 1
-- **Max**: 1
-- **Missing Count**: 0
-
-### Actual Cleansed
-
-- **Count**: 2018846
+- **Count**: 155589
 - **Min**: 0.0
-- **Max**: 165848.0
+- **Max**: 259928.9255
 - **Missing Count**: 0
 
 ---
 
 ## Time Columns Summary
 
-### Time.[Week]
+### Time.[Partial Week]
 
 - **Data Type**: object
 - **Format**: string/object (time-like)
-- **Sample Values**: ['12-Oct-25', '24-Aug-25', '14-Sep-25', '17-Aug-25', '09-Nov-25']
+- **Sample Values**: ['05-Apr-26', '05-Apr-26', '05-Apr-26', '05-Apr-26', '05-Apr-26']
 - **Missing Count**: 0
 
 ---
@@ -170,23 +139,23 @@
 
 ### First 5 Rows
 
-|    | BusinessOrg.[Business Org]   | Location.[Country]   | Location.[Geo Territory]   | Version.[Version Name]   | Channel.[MPU Level 3]   | Channel.[MPU]   | Item.[Product Planning Level]                   | Item.[Consumer Offense Cd]   | Time.[Week]   | Class.[Class]   |   Product Customer L1 Segment |   Actual Cleansed |
-|---:|:-----------------------------|:---------------------|:---------------------------|:-------------------------|:------------------------|:----------------|:------------------------------------------------|:-----------------------------|:--------------|:----------------|------------------------------:|------------------:|
-|  0 | GSA                          | REPUBLIC OF KOREA    | KOREA                      | CurrentWorkingView       | NIKE.COM KOREA          | KR_ND_NDDC      | Nike_KOBE_KIDS_APPAREL DIVISION_GLOBAL FOOTBALL | KIDS                         | 12-Oct-25     | NEW LAUNCH      |                             1 |                 0 |
-|  1 | GSA                          | REPUBLIC OF KOREA    | KOREA                      | CurrentWorkingView       | NIKE.COM KOREA          | KR_ND_NDDC      | Nike_KOBE_KIDS_APPAREL DIVISION_GLOBAL FOOTBALL | KIDS                         | 24-Aug-25     | NEW LAUNCH      |                             1 |                 3 |
-|  2 | GSA                          | REPUBLIC OF KOREA    | KOREA                      | CurrentWorkingView       | NIKE.COM KOREA          | KR_ND_NDDC      | Nike_KOBE_KIDS_APPAREL DIVISION_GLOBAL FOOTBALL | KIDS                         | 14-Sep-25     | NEW LAUNCH      |                             1 |                 4 |
-|  3 | GSA                          | REPUBLIC OF KOREA    | KOREA                      | CurrentWorkingView       | NIKE.COM KOREA          | KR_ND_NDDC      | Nike_KOBE_KIDS_APPAREL DIVISION_GLOBAL FOOTBALL | KIDS                         | 17-Aug-25     | NEW LAUNCH      |                             1 |                 7 |
-|  4 | GSA                          | REPUBLIC OF KOREA    | KOREA                      | CurrentWorkingView       | NIKE.COM KOREA          | KR_ND_NDDC      | Nike_KOBE_KIDS_APPAREL DIVISION_GLOBAL FOOTBALL | KIDS                         | 09-Nov-25     | NEW LAUNCH      |                             1 |                14 |
+|    | BusinessOrg.[Business Org]   | Forecast Iteration.[Forecast Iteration]   | Version.[Version Name]   | Location.[Country]   | Channel.[MPU Level 3]   | Time.[Partial Week]   | Item.[Product Planning Level]                         |   Ensemble Fcst Weighted |
+|---:|:-----------------------------|:------------------------------------------|:-------------------------|:---------------------|:------------------------|:----------------------|:------------------------------------------------------|-------------------------:|
+|  0 | GSA                          | FI-Default                                | Test                     | CHINA                | Nike Direct - Stores    | 05-Apr-26             | Nike_NOT_SUPPLD_KIDS_APPAREL DIVISION_GLOBAL FOOTBALL |                 0.074116 |
+|  1 | GSA                          | FI-Default                                | Test                     | CHINA                | Nike Direct - Stores    | 05-Apr-26             | Nike_NOT_SUPPLD_WOMENS_APPAREL DIVISION_BASKETBALL    |                 0.700004 |
+|  2 | GSA                          | FI-Default                                | Test                     | TAIWAN               | Nike Direct - Stores    | 05-Apr-26             | Nike_NOT_SUPPLD_WOMENS_APPAREL DIVISION_BASKETBALL    |                 0        |
+|  3 | GSA                          | FI-Default                                | Test                     | CHINA                | Nike Direct - Stores    | 05-Apr-26             | Nike_NOT_SUPPLD_KIDS_APPAREL DIVISION_BASKETBALL      |                 0        |
+|  4 | GSA                          | FI-Default                                | Test                     | CHINA                | Nike Direct - Stores    | 05-Apr-26             | Nike_NOT_SUPPLD_MENS_APPAREL DIVISION_GLOBAL FOOTBALL |                51.4784   |
 
 ### Last 5 Rows
 
-|         | BusinessOrg.[Business Org]   | Location.[Country]   | Location.[Geo Territory]   | Version.[Version Name]   | Channel.[MPU Level 3]   | Channel.[MPU]          | Item.[Product Planning Level]                | Item.[Consumer Offense Cd]   | Time.[Week]   | Class.[Class]   |   Product Customer L1 Segment |   Actual Cleansed |
-|--------:|:-----------------------------|:---------------------|:---------------------------|:-------------------------|:------------------------|:-----------------------|:---------------------------------------------|:-----------------------------|:--------------|:----------------|------------------------------:|------------------:|
-| 2018841 | NON-GSA                      | INDONESIA            | SOUTHEAST ASIA INDIA       | CurrentWorkingView       | ID NSP VALUE - CV MITRA | SEAI_NSP_Value Partner | Nike_NOT_SUPPLD_KIDS_FOOTWEAR DIVISION_SKATE | KIDS                         | 10-Nov-24     | BY              |                             1 |              0.46 |
-| 2018842 | NON-GSA                      | INDONESIA            | SOUTHEAST ASIA INDIA       | CurrentWorkingView       | ID NSP VALUE - CV MITRA | SEAI_NSP_Value Partner | Nike_NOT_SUPPLD_KIDS_FOOTWEAR DIVISION_SKATE | KIDS                         | 14-Sep-25     | BY              |                             1 |              0    |
-| 2018843 | NON-GSA                      | INDONESIA            | SOUTHEAST ASIA INDIA       | CurrentWorkingView       | ID NSP VALUE - CV MITRA | SEAI_NSP_Value Partner | Nike_NOT_SUPPLD_KIDS_FOOTWEAR DIVISION_SKATE | KIDS                         | 23-Mar-25     | BY              |                             1 |              1.54 |
-| 2018844 | NON-GSA                      | INDONESIA            | SOUTHEAST ASIA INDIA       | CurrentWorkingView       | ID NSP VALUE - CV MITRA | SEAI_NSP_Value Partner | Nike_NOT_SUPPLD_KIDS_FOOTWEAR DIVISION_SKATE | KIDS                         | 30-Jun-24     | BY              |                             1 |              0.32 |
-| 2018845 | NON-GSA                      | INDONESIA            | SOUTHEAST ASIA INDIA       | CurrentWorkingView       | ID NSP VALUE - CV MITRA | SEAI_NSP_Value Partner | Nike_NOT_SUPPLD_KIDS_FOOTWEAR DIVISION_SKATE | KIDS                         | 18-May-25     | BY              |                             1 |              0    |
+|        | BusinessOrg.[Business Org]   | Forecast Iteration.[Forecast Iteration]   | Version.[Version Name]   | Location.[Country]   | Channel.[MPU Level 3]   | Time.[Partial Week]   | Item.[Product Planning Level]                    |   Ensemble Fcst Weighted |
+|-------:|:-----------------------------|:------------------------------------------|:-------------------------|:---------------------|:------------------------|:----------------------|:-------------------------------------------------|-------------------------:|
+| 155584 | NON-GSA                      | FI-Default                                | Test                     | CHINA                | Nike.com                | 26-Sep-27             | Nike_NOT_SUPPLD_KIDS_FOOTWEAR DIVISION_RUNNING   |               168.811    |
+| 155585 | NON-GSA                      | FI-Default                                | Test                     | CHINA                | Nike.com                | 26-Sep-27             | Nike_NOT_SUPPLD_KIDS_FOOTWEAR DIVISION_SKATE     |                 3.70842  |
+| 155586 | NON-GSA                      | FI-Default                                | Test                     | CHINA                | Nike.com                | 26-Sep-27             | Nike_KOBE_MENS_FOOTWEAR DIVISION_GLOBAL FOOTBALL |                 2.06836  |
+| 155587 | NON-GSA                      | FI-Default                                | Test                     | CHINA                | Nike.com                | 26-Sep-27             | Nike_KOBE_KIDS_FOOTWEAR DIVISION_GLOBAL FOOTBALL |                 0.160562 |
+| 155588 | NON-GSA                      | FI-Default                                | Test                     | CHINA                | Nike.com                | 26-Sep-27             | Nike_ACG_MENS_FOOTWEAR DIVISION_SKATE            |                 8.19745  |
 
 ---
 
