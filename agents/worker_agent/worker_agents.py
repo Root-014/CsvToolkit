@@ -57,7 +57,7 @@ COMMUNICATION RULES (STRICT)
 - YOU MUST COMMUNICATE ONLY VIA PLAIN TEXT MESSAGES.
 - NEVER USE TOOL CALLS OR FUNCTION CALLS.
 - NEVER USE JSON FORMAT FOR COMMUNICATION.
-- Address team members by name (e.g., "Metadata_Specialist, please provide the schema").
+- Address team members by name (e.g., "Metadata_Specialist, please provide information about the dataset [filename]").
 - DO NOT GENERATE ANY PYTHON CODE.
 """
 
@@ -113,8 +113,15 @@ metaagent_prompt = lambda metadata_text: f"""
 
     ROLE:
         - Answer only to questions asked by the Manager.
-        - Identify column names, data types, and relationships if needed.
+        - Identify column names, data types, and relationships across MULTIPLE FILES if present.
+        - Help the Manager understand which file contains which data.
+        - Provide the EXACT PATH for each file (e.g., "generated_code/Input/filename.csv").
         - Provide concise, factual information. Be direct.
+
+    MULTI-FILE AWARENESS:
+        - If multiple files are listed, always specify which file you are referring to in your answer.
+        - Include the full path "generated_code/Input/[filename].csv" for every file mentioned.
+        - Look for common columns (keys) that could be used to join or relate different files.
 
     DO/DON'T:
         - DON'T GIVE ANY SUGGESTION JUST RESPOND FOR WHAT WAS ASKED.
@@ -132,12 +139,14 @@ metaagent_prompt = lambda metadata_text: f"""
         METADATA_READY
         """
 
-planner_prompt = lambda user_request, current_plan=None, current_code=None, history_summary=None: f"""
+planner_prompt = lambda user_request, current_plan=None, current_code=None, history_summary=None, metadata=None: f"""
 You are a PLANNER SPECIALIST.
 
 USER REQUEST : {user_request}
 
 {f"CONVERSATION HISTORY & STATE:\n{history_summary}\n" if history_summary else ""}
+
+{f"DATA METADATA:\n{metadata}\n" if metadata else ""}
 
 {f"CURRENT IMPLEMENTATION PLAN:\n{current_plan}\n" if current_plan else ""}
 {f"CURRENT CODE (main.py):\n{current_code}\n" if current_code else ""}
@@ -155,13 +164,19 @@ REQUIREMENTS:
     - Provide a markdown checklist (e.g., `- [ ] Load data`)
     - Call the function extract_and_save_plan with your final planning document to save it to disk.
     - End your output with "PLAN_GENERATED"
+
+AMBIGUITY HANDLING & OPEN QUESTIONS:
+    - If the user request is underspecified, vague, or if you are unsure about the data/logic:
+        1. State your assumptions clearly.
+        2. ADD a section titled "## Open Questions" at the very TOP of the plan.
+        3. List specific questions for the user to answer during the review.
     
 STRICT RULES Do/DON'T:
     - DO NOT GENERATE EXECUTABLE PYTHON CODE HERE. ONLY THE CODER PERFORMS CODE GENERATION.
     - Be concise but complete.
     - Don't include anything unnecessary.
     - DO NOT WRITE ANY CODE.
-    - USE EXACT COLUMN NAMES.
+    - USE EXACT COLUMN NAMES and specify which FILE they belong to if multiple files exist.
 """
 
 coder_agent_prompt = """
@@ -196,10 +211,11 @@ STRICT RULES:
 
 CODE REQUIREMENTS:
     - Always include necessary imports (e.g., pandas and others if required).
-    - Include inline comments for clarity.
+    - FILE PATHS: All datasets are stored in "generated_code/Input/". Use the specific filename(s) provided in the metadata or implementation plan.
     - Use try/except for error handling.
     - **SAFE PRINTING**: Whenever printing a DataFrame, ALWAYS use `.head()` (e.g., `print(df.head())`) to prevent overflowing the terminal with massive logs.
-    - Print results or save outputs as appropriate to the task.
+    - Follow the provided implementation plan precisely.
+    - End your output with "TERMINATE"
 
 RESPONSE FORMAT:
     - Provide the complete code in a code block 
@@ -385,13 +401,14 @@ class Agents:
             "max_tokens": max_tokens,
         }
 
-    def __init__(self, model='qwen3.5:cloud', base_url='http://localhost:11434/v1', api_key='gemma3', api_type='openai', price=[0.0, 0.0], OUTPUT_DIR='.'):
+    def __init__(self, model='qwen3.5:cloud', base_url='http://localhost:11434/v1', api_key='gemma3', api_type='openai', price=[0.0, 0.0], OUTPUT_DIR='.', metadata=None):
         self.model = model
         self.base_url = base_url
         self.api_key = api_key
         self.api_type = api_type
         self.price = price
         self.OUTPUT_DIR = OUTPUT_DIR
+        self.metadata = metadata if metadata else "No metadata available."
         self.config_list = {
             "model": self.model,
             "base_url": self.base_url,
@@ -564,7 +581,7 @@ class Agents:
         planner_agent = autogen.AssistantAgent(
             name="Planner",
             llm_config=self.get_llm_config(temperature=0.5, max_tokens=3000),
-            system_message=planner_prompt(user_request, current_plan=current_plan, current_code=current_code, history_summary=history_summary)
+            system_message=planner_prompt(user_request, current_plan=current_plan, current_code=current_code, history_summary=history_summary, metadata=self.metadata)
         )
         planner_agent.register_function(function_map={"extract_and_save_plan": self.extract_and_save_plan})
         return planner_agent

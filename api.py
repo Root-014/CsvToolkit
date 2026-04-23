@@ -57,8 +57,10 @@ def clean_generated_code():
 
 # Clean on startup, then ensure directories exist
 clean_generated_code()
+METADATA_DIR = os.path.join(OUTPUT_DIR, "metadata")
 os.makedirs(INPUT_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+os.makedirs(METADATA_DIR, exist_ok=True)
 
 # Note: We will serve the Vite build folder in production, but for dev we use CORS
 upload_progress_tracker = {}
@@ -73,7 +75,7 @@ async def upload_csv(file: UploadFile = File(...)):
     if not filename: filename = "input.csv"
     upload_progress_tracker[filename] = []
     
-    file_location = os.path.join(INPUT_DIR, "input.csv")
+    file_location = os.path.join(INPUT_DIR, filename)
     contents = await file.read()
     with open(file_location, "wb") as file_object:
         file_object.write(contents)
@@ -85,14 +87,23 @@ async def upload_csv(file: UploadFile = File(...)):
         def progress_callback(msg):
             upload_progress_tracker[filename].append(msg)
         results = agent.analyze(detailed=True, progress_callback=progress_callback)
-        report_path = "analysis.md"
+        
+        # Save a unique report for this file
+        report_filename = f"{os.path.splitext(filename)[0]}_metadata.md"
+        report_path = os.path.join(METADATA_DIR, report_filename)
         agent.generate_report(output_path=report_path)
         
-        # Read the generated markdown
-        with open(report_path, "r", encoding="utf-8") as md_file:
-            md_content = md_file.read()
+        # Also update a general analysis.md for legacy/convenience (combining all)
+        all_metadata = ""
+        for f in os.listdir(METADATA_DIR):
+            if f.endswith(".md"):
+                with open(os.path.join(METADATA_DIR, f), "r", encoding="utf-8") as rf:
+                    all_metadata += f"## File: {f.replace('_metadata.md', '.csv')}\n" + rf.read() + "\n\n"
+        
+        with open("analysis.md", "w", encoding="utf-8") as f:
+            f.write(all_metadata)
             
-        return {"status": "success", "message": "File uploaded and analyzed", "markdown": md_content}
+        return {"status": "success", "message": f"File {filename} uploaded and analyzed", "markdown": all_metadata}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
@@ -135,6 +146,65 @@ async def save_plan(payload: CodeUpdate):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+@app.get("/api/metadata")
+async def get_metadata():
+    if os.path.exists("analysis.md"):
+        try:
+            with open("analysis.md", "r", encoding="utf-8") as f:
+                return {"status": "success", "markdown": f.read()}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+    return {"status": "success", "markdown": ""}
+
+@app.get("/api/uploaded_csvs")
+async def list_uploaded_csvs():
+    files = []
+    if os.path.exists(INPUT_DIR):
+        files = [f for f in os.listdir(INPUT_DIR) if f.endswith(".csv")]
+    return {"status": "success", "files": files}
+
+@app.delete("/api/uploaded_csvs/{filename}")
+async def delete_uploaded_csv(filename: str):
+    print(f"[DEBUG] Attempting to delete file: {filename}")
+    file_path = os.path.join(INPUT_DIR, filename)
+    meta_name = f"{os.path.splitext(filename)[0]}_metadata.md"
+    meta_path = os.path.join(METADATA_DIR, meta_name)
+    
+    try:
+        deleted_anything = False
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            print(f"[DEBUG] Deleted input file: {file_path}")
+            deleted_anything = True
+        else:
+            print(f"[DEBUG] Input file not found: {file_path}")
+
+        if os.path.exists(meta_path):
+            os.remove(meta_path)
+            print(f"[DEBUG] Deleted metadata file: {meta_path}")
+            deleted_anything = True
+        else:
+            print(f"[DEBUG] Metadata file not found: {meta_path}")
+            
+        if not deleted_anything:
+            return {"status": "error", "message": f"File '{filename}' not found on server."}
+
+        # Rebuild analysis.md
+        all_metadata = ""
+        if os.path.exists(METADATA_DIR):
+            for f in sorted(os.listdir(METADATA_DIR)):
+                if f.endswith(".md"):
+                    with open(os.path.join(METADATA_DIR, f), "r", encoding="utf-8") as rf:
+                        all_metadata += f"## File: {f.replace('_metadata.md', '.csv')}\n" + rf.read() + "\n\n"
+        
+        with open("analysis.md", "w", encoding="utf-8") as f:
+            f.write(all_metadata)
+            
+        return {"status": "success", "markdown": all_metadata}
+    except Exception as e:
+        print(f"[ERROR] Delete failed: {e}")
+        return {"status": "error", "message": str(e)}
+
 @app.post("/api/run_code")
 def run_code():
     code_path = os.path.join(OUTPUT_DIR, "main.py")
@@ -167,9 +237,7 @@ async def websocket_endpoint(websocket: WebSocket):
         data = await websocket.receive_text()
         print(f"Received request: {data}")
         
-        # Pass absolute path natively to strictly ensure LLM gets the robust path regardless of execution directory
-        abs_csv_path = os.path.abspath(os.path.join("generated_code", "Input", "input.csv")).replace("\\", "/")
-        enhanced_data = f"{data}. IMPORTANT: The absolute filepath for the input CSV is: '{abs_csv_path}'. You must use this complete path in any code."
+        enhanced_data = data
         
         with open(log_file, "a", encoding="utf-8") as f:
             f.write(f"# Conversation Log\n\n**Request**: {enhanced_data}\n\n---\n\n")

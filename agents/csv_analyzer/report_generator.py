@@ -39,7 +39,8 @@ class MarkdownReportGenerator:
         """Write report header."""
         f.write("# CSV Data Analysis Report\n\n")
         f.write(f"**Generated**: {results['timestamp']}\n\n")
-        f.write(f"**Source File**: `{results['file_path']}`\n\n")
+        filename = os.path.basename(results['file_path'])
+        f.write(f"**Source File**: `{filename}`\n\n")
         f.write("---\n\n")
 
     def _write_overview(self, f, results):

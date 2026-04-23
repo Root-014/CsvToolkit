@@ -24,10 +24,24 @@ API_KEY = 'gemma3'
 OUTPUT_DIR = '.'
 
 def load_metadata():
-    if os.path.exists("analysis.md"):
+    metadata_dir = os.path.join("generated_code", "metadata")
+    all_metadata = ""
+    
+    if os.path.exists(metadata_dir):
+        files = [f for f in os.listdir(metadata_dir) if f.endswith(".md")]
+        for f in files:
+            path = os.path.join(metadata_dir, f)
+            with open(path, "r", encoding="utf-8") as file:
+                content = file.read()
+                # Sanitize: Remove absolute paths that might have been leaked in older reports
+                content = re.sub(r'\*\*Source File\*\*: `.*?([^/\\]+\.csv)`', r'**Source File**: `\1`', content)
+                all_metadata += f"### DATASET: {f.replace('_metadata.md', '.csv')}\n" + content + "\n\n"
+    
+    if not all_metadata and os.path.exists("analysis.md"):
         with open("analysis.md", "r", encoding="utf-8") as f:
-            return f.read()
-    return "No metadata available. Please upload a CSV first."
+            all_metadata = f.read()
+            
+    return all_metadata if all_metadata else "No metadata available. Please upload CSV files first."
 
 SESSION_CONTEXT_FILE = "session_context.json"
 
@@ -60,7 +74,8 @@ def run_agent_workflow(initial_request, metadata_text):
             model=MODEL,
             base_url=BASE_URL,
             api_key=API_KEY,
-            OUTPUT_DIR=OUTPUT_DIR
+            OUTPUT_DIR=OUTPUT_DIR,
+            metadata=metadata_text
         )
 
         current_request = initial_request

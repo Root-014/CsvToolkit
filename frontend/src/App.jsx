@@ -9,7 +9,7 @@ import { Editor } from '@monaco-editor/react';
 import {
   Upload, Play, FileText, Terminal, Bot, User, Cpu, Database,
   ShieldAlert, CheckCircle2, ChevronDown, Code, Save, Minus,
-  Square, X, Folder, MessageSquare, Pencil, Trash2, Search, Layout, UserCheck
+  Square, X, Folder, MessageSquare, Pencil, Trash2, Search, Layout, UserCheck, Maximize2
 } from 'lucide-react';
 import FileExplorer from './components/FileExplorer';
 import FileViewer from './components/FileViewer';
@@ -349,9 +349,22 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
 function App() {
   useEffect(() => {
     console.log("🚀 AutoGen Analyst: New UI Layout (v2.0) is active!");
+    // Initial metadata and files fetch
+    axios.get(`${API_BASE}/api/metadata`).then((res) => {
+      if (res.data.status === 'success' && res.data.markdown) {
+        setMarkdownContent(res.data.markdown);
+      }
+    }).catch(console.error);
+
+    axios.get(`${API_BASE}/api/uploaded_csvs`).then((res) => {
+      if (res.data.status === 'success') {
+        setUploadedFiles(res.data.files || []);
+      }
+    }).catch(console.error);
   }, []);
 
   const [file, setFile]               = useState(null);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadLogs, setUploadLogs]   = useState([]);
   const [markdownContent, setMarkdownContent] = useState('');
@@ -367,6 +380,7 @@ function App() {
   // Plan review
   const [planContent, setPlanContent]   = useState('');
   const [showPlanModal, setShowPlanModal] = useState(false);
+  const [selectedMetadataFile, setSelectedMetadataFile] = useState(null);
 
   // Code editor
   const [editorCode, setEditorCode]       = useState('');
@@ -522,6 +536,7 @@ function App() {
       clearInterval(poll);
       if (res.data.status === 'success') {
         setMarkdownContent(res.data.markdown);
+        setUploadedFiles(prev => [...new Set([...prev, selectedFile.name])]);
         setActiveTab('chat');
       } else { alert('Error analyzing file: ' + res.data.message); }
     } catch (err) {
@@ -530,6 +545,21 @@ function App() {
     } finally {
       setIsUploading(false);
       clearInterval(poll);
+    }
+  };
+
+  const handleDeleteFile = async (filename) => {
+    if (!window.confirm(`Delete ${filename}?`)) return;
+    try {
+      const res = await axios.delete(`${API_BASE}/api/uploaded_csvs/${encodeURIComponent(filename)}`);
+      if (res.data.status === 'success') {
+        setUploadedFiles(prev => prev.filter(f => f !== filename));
+        setMarkdownContent(res.data.markdown || '');
+        if (selectedMetadataFile === filename) setSelectedMetadataFile(null);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete file.');
     }
   };
 
@@ -783,6 +813,26 @@ function App() {
             <FileText size={18} /> Dataset Metadata
           </div>
         </nav>
+
+        {uploadedFiles.length > 0 && (
+          <div className="uploaded-files-section" style={{ marginTop: '32px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '20px' }}>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600, padding: '0 12px', marginBottom: '12px', letterSpacing: '0.05em' }}>UPLOADED FILES</div>
+            {uploadedFiles.map(f => (
+              <div key={f} className="sidebar-file-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: '8px', marginBottom: '4px', background: 'rgba(255,255,255,0.02)', fontSize: '0.85rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                  <Database size={14} color="#60a5fa" />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f}</span>
+                </div>
+                <button 
+                  onClick={() => handleDeleteFile(f)}
+                  style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="upload-section">
           <input type="file" id="file-upload" accept=".csv" style={{ display: 'none' }} onChange={onFileChange} />
@@ -1117,19 +1167,93 @@ function App() {
 
           {/* 4. Dataset Metadata View */}
           {activeTab === 'markdown' && (
-            <div className="md-content" style={{ padding: '40px', overflowY: 'auto' }}>
-              <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-                {markdownContent ? (
-                  <div style={{ paddingBottom: '100px' }}>
-                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdownContent}</ReactMarkdown>
-                  </div>
+            <div className="metadata-view-container" style={{ display: 'flex', height: '100%', background: 'rgba(0,0,0,0.2)' }}>
+              {/* Metadata Sidebar */}
+              <div className="metadata-sidebar" style={{ width: '280px', borderRight: '1px solid var(--glass-border)', padding: '24px', flexShrink: 0, overflowY: 'auto' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.1em', marginBottom: '20px' }}>SELECT DATASET</div>
+                {uploadedFiles.length > 0 ? (
+                  uploadedFiles.map(f => (
+                    <div 
+                      key={`md-list-${f}`}
+                      className={`metadata-list-item ${selectedMetadataFile === f ? 'active' : ''}`}
+                      onClick={() => setSelectedMetadataFile(f)}
+                      style={{ 
+                        padding: '12px 16px', 
+                        borderRadius: '10px', 
+                        marginBottom: '8px', 
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        background: selectedMetadataFile === f ? 'rgba(96, 165, 250, 0.15)' : 'rgba(255,255,255,0.03)',
+                        border: '1px solid',
+                        borderColor: selectedMetadataFile === f ? 'rgba(96, 165, 250, 0.3)' : 'transparent',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px'
+                      }}
+                    >
+                      <Database size={16} color={selectedMetadataFile === f ? '#60a5fa' : 'var(--text-secondary)'} />
+                      <span style={{ fontSize: '0.9rem', color: selectedMetadataFile === f ? '#fff' : 'var(--text-secondary)', fontWeight: selectedMetadataFile === f ? 600 : 400 }}>{f}</span>
+                    </div>
+                  ))
                 ) : (
-                  <div style={{ textAlign: 'center', marginTop: '60px', opacity: 0.4 }}>
-                    <Database size={64} />
-                    <h3 style={{ marginTop: '20px' }}>No Metadata Available</h3>
-                    <p>Upload a dataset to generate its structural profile.</p>
+                  <div style={{ textAlign: 'center', opacity: 0.3, marginTop: '40px' }}>
+                    <Database size={32} />
+                    <p style={{ fontSize: '0.8rem', marginTop: '12px' }}>No files uploaded</p>
                   </div>
                 )}
+              </div>
+
+              {/* Metadata Content Area */}
+              <div className="md-content" style={{ flex: 1, padding: '40px', overflowY: 'auto' }}>
+                <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+                  {selectedMetadataFile ? (
+                    <div style={{ paddingBottom: '100px' }}>
+                       <div style={{ 
+                         marginBottom: '40px', 
+                         display: 'flex', 
+                         alignItems: 'center', 
+                         gap: '16px',
+                         background: 'rgba(255,255,255,0.03)',
+                         padding: '20px 28px',
+                         borderRadius: '16px',
+                         border: '1px solid var(--glass-border)',
+                         backdropFilter: 'blur(10px)'
+                       }}>
+                          <div style={{ 
+                            width: '48px', 
+                            height: '48px', 
+                            borderRadius: '12px', 
+                            background: 'rgba(96, 165, 250, 0.1)', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center' 
+                          }}>
+                            <Database size={24} color="#60a5fa" />
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.05em', marginBottom: '4px' }}>ACTIVE DATASET</div>
+                            <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: '#fff' }}>{selectedMetadataFile}</h1>
+                          </div>
+                       </div>
+                       {/* Filter markdown content to show only the selected file section */}
+                       {(() => {
+                         const sections = markdownContent.split('## File: ');
+                         const targetSection = sections.find(s => s.startsWith(selectedMetadataFile));
+                         if (targetSection) {
+                            const content = targetSection.substring(selectedMetadataFile.length).trim();
+                            return <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>;
+                         }
+                         return <p>Metadata not found for this file. Try re-uploading.</p>;
+                       })()}
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: 'center', marginTop: '100px', opacity: 0.4 }}>
+                      <Database size={64} />
+                      <h3 style={{ marginTop: '20px' }}>Select a Dataset</h3>
+                      <p>Pick a file from the list to view its analytical profile.</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
