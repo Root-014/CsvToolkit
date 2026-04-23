@@ -641,16 +641,16 @@ function App() {
       if (currentMessage) {
         try {
           const whitelist = ['manager', 'metadata_specialist', 'planner', 'coder', 'feedbackagent', 'userproxy', 'resultinterpreter'];
-          if (whitelist.includes(currentMessage.sender.toLowerCase())) {
+          if (whitelist.includes(currentMessage.sender?.toLowerCase())) {
             setMessages(prev => {
               const next = [...prev];
               const lastIdx = next.findLastIndex(m => m?.id === currentMessage?.id);
               
               // Fallback: if not found by ID (race condition), use last message if sender matches
-              const targetIdx = lastIdx !== -1 ? lastIdx : (next.length > 0 && next[next.length-1].sender === currentMessage.sender ? next.length-1 : -1);
+              const targetIdx = lastIdx !== -1 ? lastIdx : (next.length > 0 && next[next.length-1]?.sender === currentMessage?.sender ? next.length-1 : -1);
               
-              if (targetIdx !== -1) {
-                const prevContent = next[targetIdx].content;
+              if (targetIdx !== -1 && next[targetIdx]) {
+                const prevContent = next[targetIdx].content || '';
                 let lineToProcess = line;
                 
                 // 1. Row Splitting

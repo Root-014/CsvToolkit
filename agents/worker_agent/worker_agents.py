@@ -1,6 +1,7 @@
 import autogen
 import os
 import re
+import json
 from autogen import AssistantAgent
 
 
@@ -25,26 +26,32 @@ llm_config = {
     "max_tokens": 3000,
 }
 
-phase1_manager_prompt = lambda user_request, is_followup=False: f"""
+phase1_manager_prompt = lambda user_request, is_followup=False, history_summary=None: f"""
 YOU ARE THE PHASE 1 PLANNING MANAGER (STRICT CONTROLLER)
 USER REQUEST : {user_request}
 {"(THIS IS A FOLLOW-UP REQUEST. BUILD UPON THE EXISTING PLAN AND CODE.)" if is_followup else ""}
 
-====================================
+{"====================================" if history_summary else ""}
+{f"CONVERSATION HISTORY & STATE:\n{history_summary}" if history_summary else ""}
+{"====================================" if history_summary else ""}
+
 YOUR TEAM:
 ====================================
 - Metadata_Specialist: Dataset expert (ask about any info related to the dataset ONLY)
 - Planner: Implementation Plan Specialist
 
-====================================
 WORKFLOW (MANDATORY)
 ====================================
-1. If this is the first turn or if metadata is missing, immediately ask Metadata_Specialist about the dataset.
-2. If metadata is already known or provided in history, proceed to step 3.
-3. Instruct the Planner to generate or update the implementation plan based on the metadata and user request.
-4. Finalize the plan and present it to the UserProxy.
+1. Review the CONVERSATION HISTORY (if provided) to understand what has been done so far.
+2. If this is the first turn or if metadata is missing, immediately ask Metadata_Specialist about the dataset.
+3. If metadata is already known or provided in history, proceed to step 4.
+4. Instruct the Planner to generate or update the implementation plan based on the metadata, history, and user request.
+5. Finalize the plan and present it to the UserProxy.
 
+PROACTIVE GUIDANCE:
 ====================================
+If the history contains 'Proactive Suggestions' that are relevant to the current request, incorporate them into your instructions to the Planner.
+
 COMMUNICATION RULES (STRICT)
 ====================================
 - YOU MUST COMMUNICATE ONLY VIA PLAIN TEXT MESSAGES.
@@ -52,6 +59,25 @@ COMMUNICATION RULES (STRICT)
 - NEVER USE JSON FORMAT FOR COMMUNICATION.
 - Address team members by name (e.g., "Metadata_Specialist, please provide the schema").
 - DO NOT GENERATE ANY PYTHON CODE.
+"""
+
+summarizer_prompt = """
+YOU ARE THE ECOSYSTEM CONTEXT MANAGER.
+Your goal is to compress a conversation into a "Persistent State" for the next turn.
+
+INPUT:
+1. Current History Summary (if any)
+2. Latest Conversation Logs (The session that just finished)
+
+OUTPUT FORMAT (STRICT JSON):
+{
+  "history_summary": "Short 2-3 sentence overview of the conversation so far.",
+  "key_findings": ["Bullet points of what was learned from the data"],
+  "active_files": ["List of generated csv/png/py files"],
+  "proactive_suggestions": ["Next logical steps for the user based on findings"]
+}
+
+STRICT RULE: Be extremely concise. Keep the summary under 100 words. DO NOT output anything but the JSON.
 """
 
 phase2_manager_prompt = """
@@ -106,18 +132,20 @@ metaagent_prompt = lambda metadata_text: f"""
         METADATA_READY
         """
 
-planner_prompt = lambda user_request, current_plan=None, current_code=None: f"""
+planner_prompt = lambda user_request, current_plan=None, current_code=None, history_summary=None: f"""
 You are a PLANNER SPECIALIST.
 
 USER REQUEST : {user_request}
 
+{f"CONVERSATION HISTORY & STATE:\n{history_summary}\n" if history_summary else ""}
+
 {f"CURRENT IMPLEMENTATION PLAN:\n{current_plan}\n" if current_plan else ""}
 {f"CURRENT CODE (main.py):\n{current_code}\n" if current_code else ""}
 
-ROLE:
-    - Based on the user's request, the provided metadata, and the CURRENT STATE (plan/code if any), construct a clear implementation plan.
+    - Based on the user's request, the provided metadata, and the CONVERSATION HISTORY & STATE, construct a clear implementation plan.
+    - STRICT EFFICIENCY: Check 'key_findings' and 'active_files'. If columns were already identified or data was already processed in previous turns, REUSE that information. DO NOT repeat metadata gathering or basic analysis if it's already in the history.
     - If a plan or code already exists, determine if this is a follow-up. 
-    - If it is a follow-up, update the existing plan or create a new one that builds upon the current code.
+    - If it is a follow-up, update the existing plan or create a new one that builds upon the current code and context.
     - Write exact data specifications, what columns to filter, sort, and process.
     - Break down the requirements into an actionable checklist.
     - Keep it clear and simple. DON'T make it complicated.
@@ -264,16 +292,17 @@ TERMINATION:
     - End immediately after response
         """
 
-request_prompt = lambda request, code_output: f"""
+request_prompt = lambda request, code_output, history_summary=None: f"""
     You are a RESULT INTERPRETER.
 
     INPUT:
         USER REQUEST: {request}
         CODE OUTPUT: {code_output}
+        {f"CONVERSATION HISTORY & STATE:\n{history_summary}\n" if history_summary else ""}
 
     ROLE:
     - Convert the CODE OUTPUT into a clear, user-facing answer.
-    - Base your response STRICTLY on the provided CODE OUTPUT.
+    - Base your response primarily on the CODE OUTPUT, but use the CONVERSATION HISTORY for context (e.g., referencing previous findings or terms).
     - Do NOT infer, assume, or add external knowledge.
 
     STRICT RULES:
@@ -501,12 +530,20 @@ class Agents:
             system_message="""Execute code when requested. Do not initiate conversations.""")
         return user_proxy
 
-    def phase1_manager_init(self, user_request, is_followup=False):
+    def phase1_manager_init(self, user_request, is_followup=False, history_summary=None):
         phase1_manager = autogen.AssistantAgent(
             name="MANAGER",
             llm_config=self.get_llm_config(temperature=0.5),
-            system_message=phase1_manager_prompt(user_request, is_followup=is_followup))
+            system_message=phase1_manager_prompt(user_request, is_followup=is_followup, history_summary=history_summary))
         return phase1_manager
+
+    def context_manager_init(self):
+        context_manager = autogen.AssistantAgent(
+            name="Context_Manager",
+            llm_config=self.get_llm_config(temperature=0),
+            system_message=summarizer_prompt
+        )
+        return context_manager
 
     def phase2_manager_init(self):
         phase2_manager = autogen.AssistantAgent(
@@ -523,11 +560,11 @@ class Agents:
         )
         return meta_agent
 
-    def planner_agent_init(self, user_request, current_plan=None, current_code=None):
+    def planner_agent_init(self, user_request, current_plan=None, current_code=None, history_summary=None):
         planner_agent = autogen.AssistantAgent(
             name="Planner",
             llm_config=self.get_llm_config(temperature=0.5, max_tokens=3000),
-            system_message=planner_prompt(user_request, current_plan=current_plan, current_code=current_code)
+            system_message=planner_prompt(user_request, current_plan=current_plan, current_code=current_code, history_summary=history_summary)
         )
         planner_agent.register_function(function_map={"extract_and_save_plan": self.extract_and_save_plan})
         return planner_agent
@@ -567,11 +604,11 @@ class Agents:
         return executor_agent
 
 
-    def result_agent_init(self, request, code_output):
+    def result_agent_init(self, request, code_output, history_summary=None):
         result_agent = autogen.AssistantAgent(
             name="ResultInterpreter",
             llm_config=self.get_llm_config(temperature=0.5),
-            system_message=request_prompt(request, code_output)
+            system_message=request_prompt(request, code_output, history_summary=history_summary)
         )
         
         return result_agent

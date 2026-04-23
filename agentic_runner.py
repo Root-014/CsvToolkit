@@ -8,6 +8,8 @@ import subprocess
 from agents.worker_agent.worker_agents import Agents
 from agents.worker_agent.worker_agents import ExecutorAgent
 from autogen import GroupChat, GroupChatManager
+import json
+import re
 
 # Force UTF-8 output encoding to avoid UnicodeEncodeError on Windows
 if sys.stdout.encoding.lower() != 'utf-8':
@@ -27,6 +29,26 @@ def load_metadata():
             return f.read()
     return "No metadata available. Please upload a CSV first."
 
+SESSION_CONTEXT_FILE = "session_context.json"
+
+def load_session_context():
+    if os.path.exists(SESSION_CONTEXT_FILE):
+        try:
+            with open(SESSION_CONTEXT_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            pass
+    return {
+        "history_summary": "Initial turn.",
+        "key_findings": [],
+        "active_files": [],
+        "proactive_suggestions": []
+    }
+
+def save_session_context(context):
+    with open(SESSION_CONTEXT_FILE, "w", encoding="utf-8") as f:
+        json.dump(context, f, indent=2)
+
 SPEAKERS = []
 def run_agent_workflow(initial_request, metadata_text):
     print(f"\n[INFO] Initializing Agentic Session...")
@@ -43,19 +65,21 @@ def run_agent_workflow(initial_request, metadata_text):
 
         current_request = initial_request
         is_first_turn = True
+        session_context = load_session_context()
 
         while True:
             # Read current context
             current_plan = agent_factory.read_verified_plan()
             current_code = agent_factory.read_current_code()
             
-
+            # Format history for Manager
+            history_str = json.dumps(session_context, indent=2) if not is_first_turn else None
             
             # Initialize core agents for Phase 1
             user_proxy = agent_factory.userproxy_agent_init()
-            phase1_manager = agent_factory.phase1_manager_init(current_request, is_followup=not is_first_turn)
+            phase1_manager = agent_factory.phase1_manager_init(current_request, is_followup=not is_first_turn, history_summary=history_str)
             metadata_specialist = agent_factory.metadata_agent_init(metadata_text)
-            planner_agent = agent_factory.planner_agent_init(current_request, current_plan=current_plan, current_code=current_code)
+            planner_agent = agent_factory.planner_agent_init(current_request, current_plan=current_plan, current_code=current_code, history_summary=history_str)
             
             # Phase 1 GroupChat
             def custom_speaker_phase1(last_speaker, groupchat):
@@ -159,13 +183,39 @@ def run_agent_workflow(initial_request, metadata_text):
             code_path = os.path.join("generated_code", "main.py")
             if os.path.exists(code_path):
                 result = subprocess.run(["python", code_path], capture_output=True, text=True, encoding='utf-8', errors='replace')
-                result_interpreter = agent_factory.result_agent_init(current_request, result.stdout)
+                result_interpreter = agent_factory.result_agent_init(current_request, result.stdout, history_summary=history_str)
                 final_response = result_interpreter.generate_reply(messages=[{"role": "user", "content": "Generate final response"}])
                 
                 print("--------------------------------------------------------------------------------")
                 print("ResultInterpreter (to UserProxy):")
                 print(final_response["content"] if isinstance(final_response, dict) else final_response)
                 print("--------------------------------------------------------------------------------")
+
+            # --- CONTEXT SUMMARIZATION (Asynchronous in flow) ---
+            print("[INFO] Updating session memory...")
+            try:
+                # Collect logs from this turn
+                turn_logs = []
+                for msg in groupchat1.messages:
+                    turn_logs.append(f"{msg.get('name', 'Agent')}: {msg.get('content', '')}")
+                for msg in groupchat2.messages:
+                    turn_logs.append(f"{msg.get('name', 'Agent')}: {msg.get('content', '')}")
+                
+                logs_text = "\n".join(turn_logs)
+                
+                summarizer = agent_factory.context_manager_init()
+                summary_prompt = f"CURRENT CONTEXT: {json.dumps(session_context)}\n\nNEW LOGS FROM THIS TURN:\n{logs_text}"
+                summary_res = summarizer.generate_reply(messages=[{"role": "user", "content": summary_prompt}])
+                summary_content = summary_res["content"] if isinstance(summary_res, dict) else summary_res
+                
+                # Extract JSON
+                json_match = re.search(r'\{.*\}', summary_content, re.DOTALL)
+                if json_match:
+                    session_context = json.loads(json_match.group(0))
+                    save_session_context(session_context)
+                    print(f"[DEBUG] Session memory updated. Proactive suggestions: {len(session_context.get('proactive_suggestions', []))}")
+            except Exception as e:
+                print(f"[DEBUG] Memory update failed: {e}")
 
             print("[WAITING_FOR_INPUT] Ready for follow-up questions.")
             next_input = sys.stdin.readline().strip()

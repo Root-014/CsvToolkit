@@ -160,8 +160,8 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     
     log_file = "conversation_log.md"
-    if os.path.exists(log_file):
-        os.remove(log_file)
+    # if os.path.exists(log_file):
+    #    os.remove(log_file)
         
     try:
         data = await websocket.receive_text()
