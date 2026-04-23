@@ -15,6 +15,30 @@ import FileExplorer from './components/FileExplorer';
 import FileViewer from './components/FileViewer';
 import './index.css';
 
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '20px', color: '#ef4444', background: '#1e293b', borderRadius: '8px', border: '1px solid #ef4444' }}>
+          <h3>UI Render Error</h3>
+          <p>{this.state.error?.toString()}</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const API_BASE = window.location.origin;
 const WS_BASE  = window.location.origin.replace(/^http/, 'ws');
 
@@ -24,15 +48,14 @@ const NOISY_PATTERNS = [
   /No next speaker selected/,
   /Select speaker attempt/,
   /is_termination_msg/,
-  /NEXT SPEAKER:/,
   /return None/,
   /^>{4,}/,
   /^<{4,}/,
   /\[INFO\] Initializing Agentic Session/,
   /\[SYSTEM\] Plan Approved/,
   /\[SYSTEM\] Beginning execution phase/,
-  /UserProxy/,
-  /Next speaker:/,
+  /^UserProxy\s+\(to\s+chat_manager\)/,
+  /^Next speaker:/,
   /Suggested tool call/,
   /Response from calling tool/
 ];
@@ -128,7 +151,7 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
     
     if (editingId) {
       // Logic for editing existing comment
-      const ann = annotations.find(a => a.id === editingId);
+      const ann = annotations.find(a => a?.id === editingId);
       if (ann) {
         const oldTag = `<!-- ANN:${JSON.stringify(ann)} -->`;
         const newAnn = { ...ann, text: comment.trim(), comment: comment.trim() };
@@ -166,7 +189,7 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
   };
 
   const deleteAnnotation = (id) => {
-    const ann = annotations.find(a => a.id === id);
+    const ann = annotations.find(a => a?.id === id);
     if (ann) {
       const tag = `<!-- ANN:${JSON.stringify(ann)} -->`;
       saveUpdatedPlan(planContent.replace(tag, ""));
@@ -175,7 +198,7 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
 
   const openEdit = (ann) => {
     setComment(ann.comment);
-    setEditingId(ann.id);
+    setEditingId(ann?.id);
     setIsAddingComment(true);
     setSelection({ text: ann.text, x: window.innerWidth / 2, y: window.innerHeight / 2 });
   };
@@ -193,7 +216,7 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
         const escaped = ann.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         // Use a more robust regex to identify the text outside of other tags
         const regex = new RegExp(`(${escaped})(?![^<]*>)`, 'g');
-        content = content.replace(regex, `<mark class="plan-highlight" data-id="${ann.id}">$1</mark>`);
+        content = content.replace(regex, `<mark class="plan-highlight" data-id="${ann?.id}">$1</mark>`);
       });
       return content;
     } catch (e) {
@@ -250,12 +273,12 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
                 </div>
               ) : (
                 annotations.map((ann) => (
-                  <div key={ann.id} className="ann-card">
+                  <div key={ann?.id} className="ann-card">
                     <div className="ann-text">"{ann.text}"</div>
                     <div className="ann-comment">{ann.comment}</div>
                     <div className="ann-actions">
                       <button onClick={() => openEdit(ann)} title="Edit"><Pencil size={12} /></button>
-                      <button onClick={() => deleteAnnotation(ann.id)} title="Delete" className="delete"><Trash2 size={12} /></button>
+                      <button onClick={() => deleteAnnotation(ann?.id)} title="Delete" className="delete"><Trash2 size={12} /></button>
                     </div>
                   </div>
                 ))
@@ -350,6 +373,7 @@ function App() {
   const [originalCode, setOriginalCode]   = useState('');
   const [editorOutput, setEditorOutput]   = useState('');
   const [isCodeRunning, setIsCodeRunning] = useState(false);
+  const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(true);
   const [terminalHeight, setTerminalHeight] = useState(240);
   const [isTerminalMinimized, setIsTerminalMinimized] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -537,7 +561,7 @@ function App() {
       content: query,
       type: 'user',
     }];
-    setMessages(initial);
+    setMessages(prev => [...prev, ...initial]);
     setIsRunning(true);
     setActiveTab('chat');
     setQuery('');
@@ -554,13 +578,13 @@ function App() {
       if (isNoisyLine(line)) return;
 
       // ── Separator ───────────────────────────────────────────────────────
-      if (line.includes('---')) return;
+      if (line.startsWith('----------')) return;
 
       // ── Agent header ────────────────────────────────────────────────────
       const agentMatch = line.match(/^(\w+)\s+\(to\s+(\w+)\):/);
       if (agentMatch) {
         const sender = agentMatch[1];
-        const whitelist = ['manager', 'metadata_specialist', 'planner', 'coder', 'feedbackagent', 'userproxy'];
+        const whitelist = ['manager', 'metadata_specialist', 'planner', 'coder', 'feedbackagent', 'userproxy', 'resultinterpreter'];
         
         if (whitelist.includes(sender.toLowerCase())) {
           setMessages(prev => {
@@ -616,11 +640,11 @@ function App() {
       // ── Regular content lines ────────────────────────────────────────────
       if (currentMessage) {
         try {
-          const whitelist = ['manager', 'metadata_specialist', 'planner', 'coder', 'feedbackagent', 'userproxy'];
+          const whitelist = ['manager', 'metadata_specialist', 'planner', 'coder', 'feedbackagent', 'userproxy', 'resultinterpreter'];
           if (whitelist.includes(currentMessage.sender.toLowerCase())) {
             setMessages(prev => {
               const next = [...prev];
-              const lastIdx = next.findLastIndex(m => m.id === currentMessage.id);
+              const lastIdx = next.findLastIndex(m => m?.id === currentMessage?.id);
               
               // Fallback: if not found by ID (race condition), use last message if sender matches
               const targetIdx = lastIdx !== -1 ? lastIdx : (next.length > 0 && next[next.length-1].sender === currentMessage.sender ? next.length-1 : -1);
@@ -706,6 +730,7 @@ function App() {
     if (s === 'coder') return <Terminal size={20} color="#34d399" />;
     if (s === 'executor') return <Play size={20} color="#fbbf24" />;
     if (s === 'feedbackagent') return <UserCheck size={20} color="#f87171" />;
+    if (s === 'resultinterpreter') return <Cpu size={20} color="#60a5fa" />;
     if (s === 'you') return <User size={20} color="#fff" />;
     return <Bot size={20} color="#94a3b8" />;
   };
@@ -718,6 +743,7 @@ function App() {
       coder:               ['agent-label coder', 'Coder'],
       executor:            ['agent-label executor', 'Executor'],
       feedbackagent:       ['agent-label validator', 'Validator'],
+      resultinterpreter:   ['agent-label manager', 'Result Analyst'],
     };
     const [cls, label] = map[sender?.toLowerCase()] ?? ['agent-label', sender];
     return <div className={cls}>{label}</div>;
@@ -843,32 +869,138 @@ function App() {
                       <p>Upload a dataset and start analyzing with agentic intelligence.</p>
                     </div>
                   </div>
-                ) : (
-                  <>
-                    {messages.map((msg) => (
-                      <div key={msg.id} className={`message-row ${msg.type === 'user' ? 'user' : ''}`}>
-                        <div className="avatar">
-                          {getAvatarIcon(msg.sender)}
-                        </div>
-                        <div className={`chat-bubble ${msg.type === 'agent' ? 'agent' : msg.type === 'user' ? 'user-msg' : 'system'}`}>
-                          {msg.type === 'agent' && getAgentHeaderStyle(msg.sender)}
-                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
-                            {msg.content}
-                          </ReactMarkdown>
-                        </div>
-                      </div>
-                    ))}
-                    {isRunning && (
-                      <div className="message-row">
-                        <div className="avatar"><Bot size={20} color="#60a5fa" /></div>
-                        <div className="chat-bubble agent">
-                           <div className="spinner-border" style={{ width: '16px', height: '16px', borderWidth: '0.15em', marginRight: '8px' }} />
-                           <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Agent ecosystem is thinking...</span>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
+                ) : (() => {
+                  try {
+                    // Group messages by session blocks (each starting with a 'You' message)
+                    // We use an IIFE here for logic, but we'll memoize it in the next pass if needed.
+                    const sessionBlocks = [];
+                    let currentBlock = [];
+
+                    messages.forEach((msg, idx) => {
+                      if (!msg) return;
+                      const isUser = msg.sender?.toLowerCase() === 'you';
+                      if (isUser && idx !== 0 && currentBlock.length > 0) {
+                        sessionBlocks.push(currentBlock);
+                        currentBlock = [];
+                      }
+                      currentBlock.push(msg);
+                    });
+                    if (currentBlock.length > 0) sessionBlocks.push(currentBlock);
+
+                    return (
+                      <>
+                        
+                          {sessionBlocks.map((block, bIdx) => {
+                            if (!block || block.length === 0) return null;
+                            
+                            const resultIdx = block.findIndex(m => m && m.sender?.toLowerCase() === 'resultinterpreter');
+                            const isLastBlock = bIdx === sessionBlocks.length - 1;
+                            
+                            const canCollapse = resultIdx !== -1 && (!isLastBlock || !isRunning);
+                            
+                            const blockHistory = resultIdx !== -1 ? block.slice(0, resultIdx) : block;
+                            const blockResults = resultIdx !== -1 ? block.slice(resultIdx) : [];
+
+                            return (
+                              <div key={`block-${bIdx}`} className="session-block" style={{ marginBottom: isLastBlock ? 0 : '40px', borderBottom: isLastBlock ? 'none' : '1px solid rgba(255,255,255,0.05)', paddingBottom: isLastBlock ? 0 : '40px' }}>
+                                {(() => {
+                                  const userMsg = block.find(m => m && m.sender?.toLowerCase() === 'you');
+                                  const restOfHistory = blockHistory.filter(m => m !== userMsg);
+                                  
+                                  return (
+                                    <>
+                                      {/* 1. Always show User Prompt at top right if it exists */}
+                                      {userMsg && (
+                                        <div key={`user-${userMsg?.id}`} className="message-row user" style={{ marginBottom: '48px' }}>
+                                          <div className="avatar">{getAvatarIcon(userMsg.sender)}</div>
+                                          <div className="chat-bubble user-msg">
+                                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
+                                              {userMsg.content || ''}
+                                            </ReactMarkdown>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {!canCollapse ? (
+                                        block.filter(m => m !== userMsg).map((msg) => msg && (
+                                          <div key={`flat-${msg?.id || Math.random()}`} className={`message-row ${(msg.type || '').toLowerCase() === 'user' ? 'user' : ''}`} style={{ marginBottom: '48px' }}>
+                                            <div className="avatar">{getAvatarIcon(msg.sender)}</div>
+                                            <div className={`chat-bubble ${(msg.type || '').toLowerCase() === 'agent' ? 'agent' : (msg.type || '').toLowerCase() === 'user' ? 'user-msg' : 'system'}`}>
+                                              {msg.type === 'agent' && getAgentHeaderStyle(msg.sender)}
+                                              <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
+                                                {msg.content || ''}
+                                              </ReactMarkdown>
+                                            </div>
+                                          </div>
+                                        ))
+                                      ) : (
+                                        <>
+                                          {restOfHistory.length > 0 && (
+                                            <div className="reasoning-container" style={{ marginLeft: '60px' }}>
+                                              <button 
+                                                className="reasoning-toggle"
+                                                style={{ marginLeft: 0 }}
+                                                onClick={() => setIsHistoryCollapsed(!isHistoryCollapsed)}
+                                              >
+                                                <ChevronDown size={14} style={{ transform: isHistoryCollapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.2s' }} />
+                                                {isHistoryCollapsed ? `Show Agent thought process (${restOfHistory.length} steps)` : 'Hide Agent thought process'}
+                                              </button>
+                                              
+                                              {!isHistoryCollapsed && (
+                                                <div className="reasoning-content">
+                                                  {restOfHistory.map((msg) => msg && (
+                                                    <div key={`hist-${msg?.id || Math.random()}`} className={`message-row ${(msg.type || '').toLowerCase() === 'user' ? 'user' : ''}`} style={{ opacity: 0.8, transform: 'scale(0.98)', transformOrigin: 'left', marginBottom: '32px' }}>
+                                                      <div className="avatar" style={{ width: '28px', height: '28px' }}>{getAvatarIcon(msg.sender)}</div>
+                                                      <div className={`chat-bubble ${(msg.type || '').toLowerCase() === 'agent' ? 'agent' : (msg.type || '').toLowerCase() === 'user' ? 'user-msg' : 'system'}`}>
+                                                        {msg.type === 'agent' && getAgentHeaderStyle(msg.sender)}
+                                                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
+                                                          {msg.content || ''}
+                                                        </ReactMarkdown>
+                                                      </div>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              )}
+                                            </div>
+                                          )}
+                                          
+                                          {blockResults.map((msg) => msg && (
+                                            <div key={`res-${msg?.id || Math.random()}`} className={`message-row ${(msg.type || '').toLowerCase() === 'user' ? 'user' : ''}`} style={{ marginBottom: '48px' }}>
+                                              <div className="avatar">{getAvatarIcon(msg.sender)}</div>
+                                              <div className={`chat-bubble ${(msg.type || '').toLowerCase() === 'agent' ? 'agent' : (msg.type || '').toLowerCase() === 'user' ? 'user-msg' : 'system'} ${msg.sender?.toLowerCase() === 'resultinterpreter' ? 'final-result' : ''}`}>
+                                                {msg.type === 'agent' && getAgentHeaderStyle(msg.sender)}
+                                                <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
+                                                  {msg.content || ''}
+                                                </ReactMarkdown>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </>
+                                      )}
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            );
+                          })}
+                        
+
+                        {isRunning && (
+                          <div className="message-row">
+                            <div className="avatar"><Bot size={20} color="#60a5fa" /></div>
+                            <div className="chat-bubble agent">
+                               <div className="spinner-border" style={{ width: '16px', height: '16px', borderWidth: '0.15em', marginRight: '8px' }} />
+                               <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Agent ecosystem is thinking...</span>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  } catch (err) {
+                    console.error("Chat Render Error:", err);
+                    return <div className="system-error">A rendering error occurred in the chat history.</div>;
+                  }
+                })()}
                 <div ref={chatEndRef} style={{ height: '20px' }} />
               </div>
 
@@ -1017,4 +1149,10 @@ function App() {
   );
 }
 
-export default App;
+export default function AppWithErrorBoundary() {
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  );
+}

@@ -2,6 +2,8 @@
 
 This guide will walk you through running the application from scratch.
 
+
+
 ## 📋 Prerequisites
 
 Before you begin, ensure you have the following installed on your Windows machine:

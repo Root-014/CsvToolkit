@@ -49,6 +49,8 @@ def run_agent_workflow(initial_request, metadata_text):
             current_plan = agent_factory.read_verified_plan()
             current_code = agent_factory.read_current_code()
             
+
+            
             # Initialize core agents for Phase 1
             user_proxy = agent_factory.userproxy_agent_init()
             phase1_manager = agent_factory.phase1_manager_init(current_request, is_followup=not is_first_turn)
@@ -161,7 +163,7 @@ def run_agent_workflow(initial_request, metadata_text):
                 final_response = result_interpreter.generate_reply(messages=[{"role": "user", "content": "Generate final response"}])
                 
                 print("--------------------------------------------------------------------------------")
-                print("Manager (to UserProxy):")
+                print("ResultInterpreter (to UserProxy):")
                 print(final_response["content"] if isinstance(final_response, dict) else final_response)
                 print("--------------------------------------------------------------------------------")
 

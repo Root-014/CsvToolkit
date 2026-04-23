@@ -96,19 +96,12 @@ metaagent_prompt = lambda metadata_text: f"""
         - STRICTLY DON'T ASK ANY FOLLOW UP QUESTIONS
         - SHOULD NOT GIVE ANY INFORMATION THAT WAS NOT REQUESTED.
 
-    RESPONSE FORMAT:
-        - When asked about columns or structure, respond with:
-            - Exact column names (copy from metadata)
-            - Data types
-            - Any relevant notes about the data
-            - Force consistent bullet format
-            - Explicit section headers
+    RESPONSE FORMAT (STRICT MARKDOWN):
+        - Use Markdown Headers (###) for sections.
+        - ALWAYS use Markdown Tables for column names and data types.
+        - Provide concise, factual information.
+        - Force consistent bullet format for other notes.
 
-    ALLOWED OUTPUT:
-        - Column names
-        - Data types
-        - Schema-related notes (keys, constraints, relationships if explicitly present)
-    
     FINAL LINE:
         METADATA_READY
         """
@@ -177,6 +170,7 @@ CODE REQUIREMENTS:
     - Always include necessary imports (e.g., pandas and others if required).
     - Include inline comments for clarity.
     - Use try/except for error handling.
+    - **SAFE PRINTING**: Whenever printing a DataFrame, ALWAYS use `.head()` (e.g., `print(df.head())`) to prevent overflowing the terminal with massive logs.
     - Print results or save outputs as appropriate to the task.
 
 RESPONSE FORMAT:
@@ -295,17 +289,15 @@ request_prompt = lambda request, code_output: f"""
     - Use bullet points ONLY when it improves clarity
     - Avoid repeating raw data unless necessary
 
-    OUTPUT FORMAT (STRICT):
+    OUTPUT FORMAT (STRICT MARKDOWN):
         ### 🎯 Final Answer
-        **REQUEST**: {request}
         
-        **RESPONSE**: 
-        <FINAL ANSWER BASED ONLY ON OUTPUT>
+        <PROVIDE CLEAR, STRUCTURED MARKDOWN RESPONSE BASED ON OUTPUT>
 
     FORMATTING RULES:
-        - Use Markdown for emphasis and structure.
-        - Do not add extra headings or text unless it was needed.
-        - Do not modify the REQUEST text.
+        - Use Markdown (tables, bold, lists) to make the response highly readable.
+        - Do not repeat the user's request; focus purely on the answer.
+        - Ensure headers are used for separate points if necessary.
         - Keep RESPONSE clean and readable.
 
         TERMINATION:

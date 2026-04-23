@@ -352,7 +352,7 @@ body {
   gap: 16px;
   width: 100%;
   align-items: flex-start;
-  margin-bottom: 32px;
+  margin-bottom: 48px;
   animation: fadeIn 0.4s ease-out;
 }
 
@@ -1725,7 +1725,96 @@ body {
   color: #ef4444;
 }
 
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Final Result Markdown Styling */
+.final-result {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 20px !important;
+  border-radius: 16px !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+}
+
+.final-result h3 {
+  color: #c084fc;
+  margin-top: 0;
+  margin-bottom: 16px;
+  font-size: 1.2rem;
+  border-bottom: 1px solid rgba(192, 132, 252, 0.2);
+  padding-bottom: 8px;
+}
+
+.final-result table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 0.9rem;
+  background: rgba(0,0,0,0.2);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.final-result th, .final-result td {
+  padding: 10px 14px;
+  border: 1px solid rgba(255,255,255,0.06);
+  text-align: left;
+}
+
+.final-result th {
+  background: rgba(255,255,255,0.05);
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.final-result tr:nth-child(even) {
+  background: rgba(255,255,255,0.02);
+}
+
+.final-result strong {
+  color: #f8fafc;
+}
+
+.final-result p {
+  margin: 8px 0;
+  line-height: 1.6;
+}
+
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+.reasoning-container {
+  margin-bottom: 32px;
+  width: 100%;
+}
+
+.reasoning-toggle {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.reasoning-toggle:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
+}
+
+.reasoning-content {
+  margin-top: 16px;
+  padding-left: 12px;
+  border-left: 2px solid rgba(255, 255, 255, 0.1);
 }
