@@ -153,7 +153,8 @@ USER REQUEST : {user_request}
 
     - Based on the user's request, the provided metadata, and the CONVERSATION HISTORY & STATE, construct a clear implementation plan.
     - STRICT EFFICIENCY: Check 'key_findings' and 'active_files'. If columns were already identified or data was already processed in previous turns, REUSE that information. DO NOT repeat metadata gathering or basic analysis if it's already in the history.
-    - If a plan or code already exists, determine if this is a follow-up. 
+    - If a plan or code already exists, determine if this is a follow-up.
+    - **FEEDBACK LOOP**: If the `current_plan` contains user comments, review notes, or modifications (e.g., text in brackets [ ], or lines starting with "NOTE:", "USER:"), YOU MUST prioritize and incorporate these changes into the updated plan.
     - If it is a follow-up, update the existing plan or create a new one that builds upon the current code and context.
     - Write exact data specifications, what columns to filter, sort, and process.
     - Break down the requirements into an actionable checklist.
@@ -161,7 +162,8 @@ USER REQUEST : {user_request}
     
 REQUIREMENTS:
     - Describe the detailed explanation of the logic needs to be precise and clear.
-    - Provide a markdown checklist (e.g., `- [ ] Load data`)
+    - SQL INTEGRATION: If multiple files or Parquet files are involved, suggest using DuckDB SQL for efficient data handling in your plan.
+    - Provide a markdown checklist (e.g., `- [ ] Load data via DuckDB`)
     - Call the function extract_and_save_plan with your final planning document to save it to disk.
     - End your output with "PLAN_GENERATED"
 
@@ -210,7 +212,16 @@ STRICT RULES:
     - CREATE CHARTS UNTIL REQUESTED BY THE MANAGER (save it in the output folder).
 
 CODE REQUIREMENTS:
-    - Always include necessary imports (e.g., pandas and others if required).
+    - Always include necessary imports (e.g., pandas, duckdb).
+    - DUCKDB & SQL: For Parquet files YOU MUST USE DUCKDB ELSE YOU CAN USE PANDAS FOR CSV.
+        - **MANDATORY PATTERN**:
+          ```python
+          import duckdb
+          conn = duckdb.connect()
+          query = "SELECT * FROM read_parquet('generated_code/Input/filename.parquet')"
+          df = conn.execute(query).df()
+          ```
+        - **STRICT EXTENSION RULE**: Do NOT append `.csv` to `.parquet` filenames. Use the exact filename provided in the metadata.
     - FILE PATHS: All datasets are stored in "generated_code/Input/". Use the specific filename(s) provided in the metadata or implementation plan.
     - Use try/except for error handling.
     - **SAFE PRINTING**: Whenever printing a DataFrame, ALWAYS use `.head()` (e.g., `print(df.head())`) to prevent overflowing the terminal with massive logs.
@@ -341,6 +352,7 @@ request_prompt = lambda request, code_output, history_summary=None: f"""
 
     FORMATTING RULES:
         - Use Markdown (tables, bold, lists) to make the response highly readable.
+        - **TABLES**: Ensure tables have exactly one header row followed by one separator row (`|---|`). Do NOT repeat separators.
         - Do not repeat the user's request; focus purely on the answer.
         - Ensure headers are used for separate points if necessary.
         - Keep RESPONSE clean and readable.

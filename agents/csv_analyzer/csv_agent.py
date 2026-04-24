@@ -35,19 +35,20 @@ class CSVAnalysisAgent:
         self.analysis_results = {}
 
     def load_csv(self, file_path, **kwargs):
-        """Load CSV file into DataFrame.
+        """Load CSV or Parquet file into DataFrame.
 
         Args:
-            file_path (str): Path to CSV file
-            **kwargs: Additional arguments to pass to pd.read_csv()
-
-        Returns:
-            pd.DataFrame: Loaded DataFrame
+            file_path (str): Path to file
+            **kwargs: Additional arguments to pass to pandas reader
         """
         try:
-            self.data = pd.read_csv(file_path, **kwargs)
+            if file_path.endswith('.parquet'):
+                self.data = pd.read_parquet(file_path, **kwargs)
+            else:
+                self.data = pd.read_csv(file_path, **kwargs)
+            
             self.file_path = file_path
-            print(f"[OK] Successfully loaded CSV: {file_path}")
+            print(f"[OK] Successfully loaded data: {file_path}")
             print(f"  Shape: {self.data.shape}")
             return self.data
         except Exception as e:

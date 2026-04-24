@@ -89,16 +89,19 @@ async def upload_csv(file: UploadFile = File(...)):
         results = agent.analyze(detailed=True, progress_callback=progress_callback)
         
         # Save a unique report for this file
-        report_filename = f"{os.path.splitext(filename)[0]}_metadata.md"
+        # Save a unique report for this file (include full filename to avoid extension collision)
+        report_filename = f"{filename}_metadata.md"
         report_path = os.path.join(METADATA_DIR, report_filename)
         agent.generate_report(output_path=report_path)
         
         # Also update a general analysis.md for legacy/convenience (combining all)
         all_metadata = ""
-        for f in os.listdir(METADATA_DIR):
+        for f in sorted(os.listdir(METADATA_DIR)):
             if f.endswith(".md"):
                 with open(os.path.join(METADATA_DIR, f), "r", encoding="utf-8") as rf:
-                    all_metadata += f"## File: {f.replace('_metadata.md', '.csv')}\n" + rf.read() + "\n\n"
+                    # The filename is f stripped of '_metadata.md'
+                    file_label = f.replace('_metadata.md', '')
+                    all_metadata += f"## File: {file_label}\n" + rf.read() + "\n\n"
         
         with open("analysis.md", "w", encoding="utf-8") as f:
             f.write(all_metadata)
@@ -156,15 +159,15 @@ async def get_metadata():
             return {"status": "error", "message": str(e)}
     return {"status": "success", "markdown": ""}
 
-@app.get("/api/uploaded_csvs")
-async def list_uploaded_csvs():
+@app.get("/api/uploaded_files")
+async def list_uploaded_files():
     files = []
     if os.path.exists(INPUT_DIR):
-        files = [f for f in os.listdir(INPUT_DIR) if f.endswith(".csv")]
+        files = [f for f in os.listdir(INPUT_DIR) if f.endswith(".csv") or f.endswith(".parquet")]
     return {"status": "success", "files": files}
 
-@app.delete("/api/uploaded_csvs/{filename}")
-async def delete_uploaded_csv(filename: str):
+@app.delete("/api/uploaded_files/{filename}")
+async def delete_uploaded_file(filename: str):
     print(f"[DEBUG] Attempting to delete file: {filename}")
     file_path = os.path.join(INPUT_DIR, filename)
     meta_name = f"{os.path.splitext(filename)[0]}_metadata.md"
@@ -195,7 +198,8 @@ async def delete_uploaded_csv(filename: str):
             for f in sorted(os.listdir(METADATA_DIR)):
                 if f.endswith(".md"):
                     with open(os.path.join(METADATA_DIR, f), "r", encoding="utf-8") as rf:
-                        all_metadata += f"## File: {f.replace('_metadata.md', '.csv')}\n" + rf.read() + "\n\n"
+                        file_label = f.replace('_metadata.md', '')
+                        all_metadata += f"## File: {file_label}\n" + rf.read() + "\n\n"
         
         with open("analysis.md", "w", encoding="utf-8") as f:
             f.write(all_metadata)

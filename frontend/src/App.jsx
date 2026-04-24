@@ -9,7 +9,7 @@ import { Editor } from '@monaco-editor/react';
 import {
   Upload, Play, FileText, Terminal, Bot, User, Cpu, Database,
   ShieldAlert, CheckCircle2, ChevronDown, Code, Save, Minus,
-  Square, X, Folder, MessageSquare, Pencil, Trash2, Search, Layout, UserCheck, Maximize2
+  Square, X, Folder, MessageSquare, Pencil, Trash2, Search, Layout, UserCheck, Maximize2, Layers
 } from 'lucide-react';
 import FileExplorer from './components/FileExplorer';
 import FileViewer from './components/FileViewer';
@@ -150,32 +150,19 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
     if (!comment.trim() || !selection) return;
     
     if (editingId) {
-      // Logic for editing existing comment
       const ann = annotations.find(a => a?.id === editingId);
       if (ann) {
         const oldTag = `<!-- ANN:${JSON.stringify(ann)} -->`;
-        const newAnn = { ...ann, text: comment.trim(), comment: comment.trim() };
+        const newAnn = { ...ann, comment: comment.trim() };
         const newTag = `<!-- ANN:${JSON.stringify(newAnn)} -->`;
-        
-        // Replace the previously annotated text with the new comment
-        const index = planContent.indexOf(ann.text);
-        if (index !== -1) {
-          const updated = planContent.slice(0, index) + 
-                          comment.trim() + 
-                          planContent.slice(index + ann.text.length);
-          saveUpdatedPlan(updated.replace(oldTag, newTag));
-        } else {
-          saveUpdatedPlan(planContent.replace(oldTag, newTag));
-        }
+        saveUpdatedPlan(planContent.replace(oldTag, newTag));
       }
     } else {
-      // Logic for adding new comment: Replace selection with the comment text
-      const newAnn = { id: Date.now().toString(), text: comment.trim(), comment: comment.trim() };
+      const newAnn = { id: Date.now().toString(), text: selection.text, comment: comment.trim() };
       const commentTag = `<!-- ANN:${JSON.stringify(newAnn)} -->`;
       const index = planContent.indexOf(selection.text);
       if (index !== -1) {
-        const updated = planContent.slice(0, index) + 
-                        comment.trim() + 
+        const updated = planContent.slice(0, index + selection.text.length) + 
                         " " + commentTag + 
                         planContent.slice(index + selection.text.length);
         saveUpdatedPlan(updated);
@@ -274,7 +261,13 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
               ) : (
                 annotations.map((ann) => (
                   <div key={ann?.id} className="ann-card">
+                    <div style={{ fontSize: '0.65rem', color: 'var(--primary)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.05em' }}>
+                      Context
+                    </div>
                     <div className="ann-text">"{ann.text}"</div>
+                    <div style={{ fontSize: '0.65rem', color: '#f472b6', fontWeight: 800, textTransform: 'uppercase', margin: '12px 0 4px 0', letterSpacing: '0.05em' }}>
+                      Comment
+                    </div>
                     <div className="ann-comment">{ann.comment}</div>
                     <div className="ann-actions">
                       <button onClick={() => openEdit(ann)} title="Edit"><Pencil size={12} /></button>
@@ -297,8 +290,9 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
               <div className="annotation-container md-content" ref={containerRef} style={{ padding: '40px', background: '#020617', color: '#f8fafc' }}>
                 <ReactMarkdown 
                   remarkPlugins={[remarkGfm]} 
+                  rehypePlugins={[rehypeRaw]}
                 >
-                  {planContent}
+                  {highlightedContent}
                 </ReactMarkdown>
               </div>
             )}
@@ -356,7 +350,7 @@ function App() {
       }
     }).catch(console.error);
 
-    axios.get(`${API_BASE}/api/uploaded_csvs`).then((res) => {
+    axios.get(`${API_BASE}/api/uploaded_files`).then((res) => {
       if (res.data.status === 'success') {
         setUploadedFiles(res.data.files || []);
       }
@@ -516,7 +510,12 @@ function App() {
   const onFileChange = (e) => { if (e.target.files?.[0]) handleFileUpload(e.target.files[0]); };
 
   const handleFileUpload = async (selectedFile) => {
-    if (!selectedFile.name.endsWith('.csv')) { alert('Please upload a valid CSV file.'); return; }
+    const isCsv = selectedFile.name.endsWith('.csv');
+    const isParquet = selectedFile.name.endsWith('.parquet');
+    if (!isCsv && !isParquet) { 
+      alert('Please upload a valid CSV or Parquet file.'); 
+      return; 
+    }
     setFile(selectedFile);
     setIsUploading(true);
     setUploadLogs([]);
@@ -551,7 +550,7 @@ function App() {
   const handleDeleteFile = async (filename) => {
     if (!window.confirm(`Delete ${filename}?`)) return;
     try {
-      const res = await axios.delete(`${API_BASE}/api/uploaded_csvs/${encodeURIComponent(filename)}`);
+      const res = await axios.delete(`${API_BASE}/api/uploaded_files/${encodeURIComponent(filename)}`);
       if (res.data.status === 'success') {
         setUploadedFiles(prev => prev.filter(f => f !== filename));
         setMarkdownContent(res.data.markdown || '');
@@ -682,35 +681,35 @@ function App() {
               if (targetIdx !== -1 && next[targetIdx]) {
                 const prevContent = next[targetIdx].content || '';
                 let lineToProcess = line;
-                
-                // 1. Row Splitting
-                if (lineToProcess.includes('| |')) {
-                  lineToProcess = lineToProcess.replace(/\|\s+\|/g, '|\n|');
-                }
-
                 const isTableLine = lineToProcess.trim().startsWith('|') && lineToProcess.trim().endsWith('|');
+                const isSeparator = isTableLine && lineToProcess.includes('---');
                 const trimmedPrev = prevContent.trimEnd();
                 let newContent = prevContent + lineToProcess + '\n';
                 
-                // 2. Cohesive Stitching
+                // 2. Cohesive Stitching & Table Isolation
                 if (isTableLine && trimmedPrev.length > 0) {
                   const lines = trimmedPrev.split('\n');
                   const lastNonEmptyLine = lines.filter(l => l.trim()).pop() || '';
                   const wasLastLineTable = lastNonEmptyLine.trim().startsWith('|') && lastNonEmptyLine.trim().endsWith('|');
-                  
+                  const prevHasSeparator = prevContent.includes('|---') || prevContent.includes('| ---');
+
                   if (wasLastLineTable) {
-                    newContent = trimmedPrev + '\n' + lineToProcess + '\n';
-                  } else if (!trimmedPrev.endsWith('\n\n')) {
+                    // If this is a separator line and we already have one, skip it to avoid "unwanted columns/rows"
+                    if (isSeparator && prevHasSeparator) {
+                       newContent = prevContent; // Skip this line
+                    } else {
+                       newContent = trimmedPrev + '\n' + lineToProcess + '\n';
+                    }
+                  } else {
+                    // Start new table
                     newContent = trimmedPrev + '\n\n' + lineToProcess + '\n';
                   }
-                }
-                
-                // 3. Auto-Separator
-                if (isTableLine && !newContent.includes('|---') && !lineToProcess.includes('|---')) {
-                  const cols = lineToProcess.split('|').filter(c => c.trim()).length;
-                  if (cols > 1) {
-                    const sep = '\n|' + Array(cols).fill('---|').join('') + '\n';
-                    newContent = newContent.trimEnd() + sep;
+                } else if (!isTableLine && trimmedPrev.length > 0) {
+                  const lines = trimmedPrev.split('\n');
+                  const lastNonEmptyLine = lines.filter(l => l.trim()).pop() || '';
+                  const wasLastLineTable = lastNonEmptyLine.trim().startsWith('|') && lastNonEmptyLine.trim().endsWith('|');
+                  if (wasLastLineTable) {
+                    newContent = trimmedPrev + '\n\n' + lineToProcess + '\n';
                   }
                 }
                 
@@ -820,7 +819,7 @@ function App() {
             {uploadedFiles.map(f => (
               <div key={f} className="sidebar-file-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: '8px', marginBottom: '4px', background: 'rgba(255,255,255,0.02)', fontSize: '0.85rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                  <Database size={14} color="#60a5fa" />
+                  {f.endsWith('.parquet') ? <Layers size={14} color="#10b981" /> : <Database size={14} color="#60a5fa" />}
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f}</span>
                 </div>
                 <button 
@@ -835,7 +834,7 @@ function App() {
         )}
 
         <div className="upload-section">
-          <input type="file" id="file-upload" accept=".csv" style={{ display: 'none' }} onChange={onFileChange} />
+          <input type="file" id="file-upload" accept=".csv,.parquet" style={{ display: 'none' }} onChange={onFileChange} />
           {!isUploading ? (
             <label htmlFor="file-upload">
               <div
@@ -998,33 +997,37 @@ function App() {
                                               
                                               {!isHistoryCollapsed && (
                                                 <div className="reasoning-content">
-                                                  {restOfHistory.map((msg) => msg && (
-                                                    <div key={`hist-${msg?.id || Math.random()}`} className={`message-row ${(msg.type || '').toLowerCase() === 'user' ? 'user' : ''}`} style={{ opacity: 0.8, transform: 'scale(0.98)', transformOrigin: 'left', marginBottom: '32px' }}>
-                                                      <div className="avatar" style={{ width: '28px', height: '28px' }}>{getAvatarIcon(msg.sender)}</div>
-                                                      <div className={`chat-bubble ${(msg.type || '').toLowerCase() === 'agent' ? 'agent' : (msg.type || '').toLowerCase() === 'user' ? 'user-msg' : 'system'}`}>
-                                                        {msg.type === 'agent' && getAgentHeaderStyle(msg.sender)}
-                                                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
-                                                          {msg.content || ''}
-                                                        </ReactMarkdown>
-                                                      </div>
-                                                    </div>
-                                                  ))}
+                                                   {restOfHistory.map((msg) => msg && (
+                                                     <div key={`hist-${msg?.id || Math.random()}`} className={`message-row ${(msg.type || "").toLowerCase() === "user" ? "user" : ""}`} style={{ opacity: 0.8, transform: "scale(0.98)", transformOrigin: "left", marginBottom: "32px" }}>
+                                                       <div className="avatar" style={{ width: "28px", height: "28px" }}>{getAvatarIcon(msg.sender)}</div>
+                                                       <div className={`chat-bubble ${(msg.type || "").toLowerCase() === "agent" ? "agent" : (msg.type || "").toLowerCase() === "user" ? "user-msg" : "system"}`}>
+                                                         {msg.type === "agent" && getAgentHeaderStyle(msg.sender)}
+                                                         <div className="markdown-content">
+                                                           <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
+                                                             {msg.content || ""}
+                                                           </ReactMarkdown>
+                                                         </div>
+                                                       </div>
+                                                     </div>
+                                                   ))}
                                                 </div>
                                               )}
                                             </div>
                                           )}
                                           
-                                          {blockResults.map((msg) => msg && (
-                                            <div key={`res-${msg?.id || Math.random()}`} className={`message-row ${(msg.type || '').toLowerCase() === 'user' ? 'user' : ''}`} style={{ marginBottom: '48px' }}>
-                                              <div className="avatar">{getAvatarIcon(msg.sender)}</div>
-                                              <div className={`chat-bubble ${(msg.type || '').toLowerCase() === 'agent' ? 'agent' : (msg.type || '').toLowerCase() === 'user' ? 'user-msg' : 'system'} ${msg.sender?.toLowerCase() === 'resultinterpreter' ? 'final-result' : ''}`}>
-                                                {msg.type === 'agent' && getAgentHeaderStyle(msg.sender)}
-                                                <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
-                                                  {msg.content || ''}
-                                                </ReactMarkdown>
-                                              </div>
-                                            </div>
-                                          ))}
+                                           {blockResults.map((msg) => msg && (
+                                             <div key={`res-${msg?.id || Math.random()}`} className={`message-row ${(msg.type || "").toLowerCase() === "user" ? "user" : ""}`} style={{ marginBottom: "64px" }}>
+                                               <div className="avatar">{getAvatarIcon(msg.sender)}</div>
+                                               <div className={`chat-bubble ${(msg.type || "").toLowerCase() === "agent" ? "agent" : (msg.type || "").toLowerCase() === "user" ? "user-msg" : "system"} ${msg.sender?.toLowerCase() === "resultinterpreter" ? "final-result" : ""}`}>
+                                                 {msg.type === "agent" && getAgentHeaderStyle(msg.sender)}
+                                                 <div className="markdown-content">
+                                                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
+                                                     {msg.content || ""}
+                                                   </ReactMarkdown>
+                                                 </div>
+                                               </div>
+                                             </div>
+                                           ))}
                                         </>
                                       )}
                                     </>
@@ -1186,13 +1189,19 @@ function App() {
                         background: selectedMetadataFile === f ? 'rgba(96, 165, 250, 0.15)' : 'rgba(255,255,255,0.03)',
                         border: '1px solid',
                         borderColor: selectedMetadataFile === f ? 'rgba(96, 165, 250, 0.3)' : 'transparent',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px'
-                      }}
+                       }}
                     >
-                      <Database size={16} color={selectedMetadataFile === f ? '#60a5fa' : 'var(--text-secondary)'} />
-                      <span style={{ fontSize: '0.9rem', color: selectedMetadataFile === f ? '#fff' : 'var(--text-secondary)', fontWeight: selectedMetadataFile === f ? 600 : 400 }}>{f}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden', width: '100%' }}>
+                        {f.endsWith('.parquet') ? <Layers size={16} color={selectedMetadataFile === f ? '#10b981' : 'var(--text-secondary)'} /> : <Database size={16} color={selectedMetadataFile === f ? '#60a5fa' : 'var(--text-secondary)'} />}
+                        <span style={{ 
+                          fontSize: '0.9rem', 
+                          color: selectedMetadataFile === f ? '#fff' : 'var(--text-secondary)', 
+                          fontWeight: selectedMetadataFile === f ? 600 : 400,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>{f}</span>
+                      </div>
                     </div>
                   ))
                 ) : (
@@ -1223,12 +1232,12 @@ function App() {
                             width: '48px', 
                             height: '48px', 
                             borderRadius: '12px', 
-                            background: 'rgba(96, 165, 250, 0.1)', 
+                            background: selectedMetadataFile.endsWith('.parquet') ? 'rgba(16, 185, 129, 0.1)' : 'rgba(96, 165, 250, 0.1)', 
                             display: 'flex', 
                             alignItems: 'center', 
                             justifyContent: 'center' 
                           }}>
-                            <Database size={24} color="#60a5fa" />
+                            {selectedMetadataFile.endsWith('.parquet') ? <Layers size={24} color="#10b981" /> : <Database size={24} color="#60a5fa" />}
                           </div>
                           <div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.05em', marginBottom: '4px' }}>ACTIVE DATASET</div>
@@ -1237,13 +1246,32 @@ function App() {
                        </div>
                        {/* Filter markdown content to show only the selected file section */}
                        {(() => {
-                         const sections = markdownContent.split('## File: ');
-                         const targetSection = sections.find(s => s.startsWith(selectedMetadataFile));
+                         // Clean content and split by file header
+                         const sections = markdownContent.split(/## File: /);
+                         const targetSection = sections.find(s => {
+                            const lines = s.trim().split('\n');
+                            if (lines.length === 0) return false;
+                            const headerFilename = lines[0].trim();
+                            // Exact match
+                            if (headerFilename === selectedMetadataFile) return true;
+                            // Base name match (fallback for extension mismatches)
+                            const baseHeader = headerFilename.split('.')[0];
+                            const baseSelected = selectedMetadataFile.split('.')[0];
+                            return baseHeader === baseSelected && baseHeader.length > 0;
+                         });
+                         
                          if (targetSection) {
-                            const content = targetSection.substring(selectedMetadataFile.length).trim();
+                            const lines = targetSection.trim().split('\n');
+                            const content = lines.slice(1).join('\n').trim();
                             return <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>;
                          }
-                         return <p>Metadata not found for this file. Try re-uploading.</p>;
+                         return (
+                           <div style={{ textAlign: 'center', marginTop: '60px', opacity: 0.5 }}>
+                             <Database size={48} style={{ marginBottom: '16px' }} />
+                             <p>Metadata not found for <strong>{selectedMetadataFile}</strong>.</p>
+                             <p style={{ fontSize: '0.85rem' }}>Try re-uploading the file to regenerate its profile.</p>
+                           </div>
+                         );
                        })()}
                     </div>
                   ) : (

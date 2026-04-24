@@ -10,6 +10,12 @@ from agents.worker_agent.worker_agents import ExecutorAgent
 from autogen import GroupChat, GroupChatManager
 import json
 import re
+from datetime import datetime
+
+def log_phase_time(phase_name, start_time, end_time):
+    duration = (end_time - start_time).total_seconds()
+    with open("phase_timings.txt", "a", encoding="utf-8") as f:
+        f.write(f"[{start_time.strftime('%Y-%m-%d %H:%M:%S')}] Phase: {phase_name} | Duration: {duration:.2f}s\n")
 
 # Force UTF-8 output encoding to avoid UnicodeEncodeError on Windows
 if sys.stdout.encoding.lower() != 'utf-8':
@@ -35,7 +41,7 @@ def load_metadata():
                 content = file.read()
                 # Sanitize: Remove absolute paths that might have been leaked in older reports
                 content = re.sub(r'\*\*Source File\*\*: `.*?([^/\\]+\.csv)`', r'**Source File**: `\1`', content)
-                all_metadata += f"### DATASET: {f.replace('_metadata.md', '.csv')}\n" + content + "\n\n"
+                all_metadata += f"### DATASET: {f.replace('_metadata.md', '')}\n" + content + "\n\n"
     
     if not all_metadata and os.path.exists("analysis.md"):
         with open("analysis.md", "r", encoding="utf-8") as f:
@@ -97,6 +103,7 @@ def run_agent_workflow(initial_request, metadata_text):
             planner_agent = agent_factory.planner_agent_init(current_request, current_plan=current_plan, current_code=current_code, history_summary=history_str)
             
             # Phase 1 GroupChat
+            phase1_start = datetime.now()
             def custom_speaker_phase1(last_speaker, groupchat):
                 messages = groupchat.messages
                 if not messages: return phase1_manager
@@ -124,7 +131,7 @@ def run_agent_workflow(initial_request, metadata_text):
 
             manager1 = GroupChatManager(
                 groupchat=groupchat1,
-                llm_config=agent_factory.get_llm_config(temperature=0),
+                llm_config=agent_factory.get_llm_config(temperature=0.5),
                 system_message="PHASE 1: Planning and Metadata gathering."
             )
 
@@ -132,6 +139,8 @@ def run_agent_workflow(initial_request, metadata_text):
                 manager1,
                 message=f"User Request: {current_request}\nInitiate conversation with Manager."
             )
+            phase1_end = datetime.now()
+            log_phase_time("Phase 1: Planning", phase1_start, phase1_end)
 
             # Extract the plan from the last Planner message
             planner_msgs = [m for m in groupchat1.messages if m.get("name") == "Planner"]
@@ -142,7 +151,10 @@ def run_agent_workflow(initial_request, metadata_text):
             # CHECKPOINT: PLAN APPROVAL
             import sys
             print("\n[ACTION_REQUIRED: VERIFY PLAN]", flush=True)
+            verify_start = datetime.now()
             approval = sys.stdin.readline().strip().lower()
+            verify_end = datetime.now()
+            log_phase_time("Plan Verification", verify_start, verify_end)
             
             if approval not in ['yes', 'y']:
                 print("[SYSTEM] Plan verification rejected or session terminated.", flush=True)
@@ -151,6 +163,7 @@ def run_agent_workflow(initial_request, metadata_text):
             print("[SYSTEM] Plan Approved. Beginning execution phase.", flush=True)
 
             # Phase 2: Execution
+            phase2_start = datetime.now()
             phase2_manager = agent_factory.phase2_manager_init()
             coder_agent = agent_factory.coder_agent_init()
             feedback_agent = agent_factory.validate_agent(current_request)
@@ -183,18 +196,22 @@ def run_agent_workflow(initial_request, metadata_text):
 
             manager2 = GroupChatManager(
                 groupchat=groupchat2,
-                llm_config=agent_factory.get_llm_config(temperature=0),
+                llm_config=agent_factory.get_llm_config(temperature=0.5),
                 is_termination_msg=agent_factory.is_termination_msg_v3,
                 system_message="PHASE 2: Implementation and Validation."
             )
 
             plan_content = agent_factory.read_verified_plan()
+            print(f"****************\n {plan_content} \n *****************")
             user_proxy.initiate_chat(
                 manager2,
                 message=f"PLAN:\n{plan_content}\n\nExecute the plan for request: {current_request}"
             )
+            phase2_end = datetime.now()
+            log_phase_time("Phase 2: Execution", phase2_start, phase2_end)
 
             # Final response generation
+            res_gen_start = datetime.now()
             code_path = os.path.join("generated_code", "main.py")
             if os.path.exists(code_path):
                 result = subprocess.run(["python", code_path], capture_output=True, text=True, encoding='utf-8', errors='replace')
@@ -205,9 +222,12 @@ def run_agent_workflow(initial_request, metadata_text):
                 print("ResultInterpreter (to UserProxy):")
                 print(final_response["content"] if isinstance(final_response, dict) else final_response)
                 print("--------------------------------------------------------------------------------")
+            res_gen_end = datetime.now()
+            log_phase_time("Result Generation", res_gen_start, res_gen_end)
 
             # --- CONTEXT SUMMARIZATION (Asynchronous in flow) ---
             print("[INFO] Updating session memory...")
+            mem_start = datetime.now()
             try:
                 # Collect logs from this turn
                 turn_logs = []
@@ -231,6 +251,8 @@ def run_agent_workflow(initial_request, metadata_text):
                     print(f"[DEBUG] Session memory updated. Proactive suggestions: {len(session_context.get('proactive_suggestions', []))}")
             except Exception as e:
                 print(f"[DEBUG] Memory update failed: {e}")
+            mem_end = datetime.now()
+            log_phase_time("Memory Update", mem_start, mem_end)
 
             print("[WAITING_FOR_INPUT] Ready for follow-up questions.")
             next_input = sys.stdin.readline().strip()
