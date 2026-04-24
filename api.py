@@ -261,6 +261,7 @@ async def websocket_endpoint(websocket: WebSocket):
         )
         
         async def read_stdout():
+            suppressing = False
             try:
                 while True:
                     line = await asyncio.to_thread(process.stdout.readline)
@@ -268,11 +269,19 @@ async def websocket_endpoint(websocket: WebSocket):
                         break
                     
                     decoded_line = line.decode('utf-8', errors='replace').strip()
-                    if decoded_line:
+                    
+                    # Detect start/end of hidden tags
+                    if "<!-- FINAL_ANSWER_START -->" in decoded_line:
+                        suppressing = True
+                    
+                    if not suppressing and decoded_line:
                         print(f"Subprocess output: {decoded_line}")
                         await websocket.send_text(decoded_line)
                         with open(log_file, "a", encoding="utf-8") as f:
                             f.write(decoded_line + "\n")
+                    
+                    if "<!-- FINAL_ANSWER_END -->" in decoded_line:
+                        suppressing = False
             except Exception as e:
                 print(f"Error reading stdout: {e}")
             finally:

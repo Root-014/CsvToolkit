@@ -212,16 +212,27 @@ def run_agent_workflow(initial_request, metadata_text):
 
             # Final response generation
             res_gen_start = datetime.now()
-            code_path = os.path.join("generated_code", "main.py")
-            if os.path.exists(code_path):
-                result = subprocess.run(["python", code_path], capture_output=True, text=True, encoding='utf-8', errors='replace')
-                result_interpreter = agent_factory.result_agent_init(current_request, result.stdout, history_summary=history_str)
-                final_response = result_interpreter.generate_reply(messages=[{"role": "user", "content": "Generate final response"}])
+            
+            # Find the last message from FeedbackAgent
+            feedback_msgs = [m for m in groupchat2.messages if m.get("name") == "FeedbackAgent"]
+            if feedback_msgs:
+                last_msg_content = feedback_msgs[-1].get("content", "")
                 
-                print("--------------------------------------------------------------------------------")
-                print("ResultInterpreter (to UserProxy):")
-                print(final_response["content"] if isinstance(final_response, dict) else final_response)
-                print("--------------------------------------------------------------------------------")
+                if "<!-- FINAL_ANSWER_START -->" in last_msg_content:
+                    # Extract the section between the hidden tags
+                    final_answer = last_msg_content.split("<!-- FINAL_ANSWER_START -->")[-1].split("<!-- FINAL_ANSWER_END -->")[0].strip()
+                    
+                    print("--------------------------------------------------------------------------------", flush=True)
+                    print("ResultInterpreter (to UserProxy):", flush=True)
+                    print(final_answer, flush=True)
+                    print("--------------------------------------------------------------------------------", flush=True)
+                else:
+                    # Fallback or display report if it was an error
+                    print("--------------------------------------------------------------------------------", flush=True)
+                    print("Validator (Report):", flush=True)
+                    print(last_msg_content, flush=True)
+                    print("--------------------------------------------------------------------------------", flush=True)
+            
             res_gen_end = datetime.now()
             log_phase_time("Result Generation", res_gen_start, res_gen_end)
 

@@ -256,21 +256,23 @@ IF STATUS = ERROR
 
 """
 validate_agent_prompt = lambda user_request: f""" 
-You are a VALIDATOR AGENT.
+You are a VALIDATOR & RESULT INTERPRETER AGENT.
 
 INPUT:
     - USER REQUEST: {user_request}
     - CODE OUTPUT: CODE EXECUTOR OUTPUT
     - CODE : FROM CODER AGENT
+
 ROLE:
     - When you start/ask to validate the code check whether it satisfies the USER REQUEST.
     - If the code is not able to run or gives error then respond what's the error and root cause.
     - Perform strict technical validation.
+    - IF AND ONLY IF THE STATUS IS APPROVED: ALSO convert the CODE OUTPUT into a clear, user-facing answer (Result Interpretation).
 
 STEPS: 
     1. Check the output.
     2. Compare the output with the USER REQUEST.
-    3. Respond the response with the format given.
+    3. Respond with the format given below.
 
 STRICT RULES:
     - DO NOT WRITE OR GENERATE ANY CODE YOURSELF.
@@ -297,7 +299,7 @@ REJECTION CONDITIONS:
 
 
 ===============================================
-OUTPUT FORMAT AFTER CODE EXECUTION (STRICT - NO DEVIATION):
+OUTPUT FORMAT (STRICT - NO DEVIATION):
 ===============================================
 
 ### 🛡️ Validation Report
@@ -315,9 +317,22 @@ OUTPUT FORMAT AFTER CODE EXECUTION (STRICT - NO DEVIATION):
 <complete code execution output, exactly as returned by the executed code>
 ```
 
+---
+<!-- FINAL_ANSWER_START -->
+### 🎯 Final Answer
+(ONLY GENERATE THIS SECTION IF STATUS IS APPROVED)
+<Convert the CODE OUTPUT into a clear, user-facing answer.>
+- Maximum 80 words
+- Be concise, precise, and structured
+- Use bullet points ONLY when it improves clarity
+- Avoid repeating raw data unless necessary
+- Use Markdown (tables, bold, lists) to make the response highly readable.
+- **TABLES**: Ensure tables have exactly one header row followed by one separator row (|---|). Do NOT repeat separators.
+<!-- FINAL_ANSWER_END -->
+
 TERMINATION:
     - End immediately after response
-        """
+"""
 
 request_prompt = lambda request, code_output, history_summary=None: f"""
     You are a RESULT INTERPRETER.
