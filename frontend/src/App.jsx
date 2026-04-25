@@ -40,7 +40,7 @@ class ErrorBoundary extends React.Component {
 }
 
 const API_BASE = window.location.origin;
-const WS_BASE  = window.location.origin.replace(/^http/, 'ws');
+const WS_BASE = window.location.origin.replace(/^http/, 'ws');
 
 // ─── Noise patterns to filter from the WebSocket stream ───────────────────────
 const NOISY_PATTERNS = [
@@ -148,7 +148,7 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
 
   const submitComment = () => {
     if (!comment.trim() || !selection) return;
-    
+
     if (editingId) {
       const ann = annotations.find(a => a?.id === editingId);
       if (ann) {
@@ -162,13 +162,13 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
       const commentTag = `<!-- ANN:${JSON.stringify(newAnn)} -->`;
       const index = planContent.indexOf(selection.text);
       if (index !== -1) {
-        const updated = planContent.slice(0, index + selection.text.length) + 
-                        " " + commentTag + 
-                        planContent.slice(index + selection.text.length);
+        const updated = planContent.slice(0, index + selection.text.length) +
+          " " + commentTag +
+          planContent.slice(index + selection.text.length);
         saveUpdatedPlan(updated);
       }
     }
-    
+
     setComment("");
     setSelection(null);
     setIsAddingComment(false);
@@ -196,7 +196,7 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
       let content = planContent;
       // We sort by length descending to avoid nested partial matches
       const sortedAnns = [...annotations].sort((a, b) => b.text.length - a.text.length);
-      
+
       sortedAnns.forEach(ann => {
         if (!ann.text) return;
         // Escape special regex chars
@@ -234,7 +234,7 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
                 </div>
               </div>
             </div>
-            
+
             <div style={{ display: 'flex', gap: '12px' }}>
               <button className="modal-btn modal-btn-reject" onClick={onReject}>
                 <X size={18} /> Exit Chat
@@ -288,8 +288,8 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
               </div>
             ) : (
               <div className="annotation-container md-content" ref={containerRef} style={{ padding: '40px', background: '#020617', color: '#f8fafc' }}>
-                <ReactMarkdown 
-                  remarkPlugins={[remarkGfm]} 
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
                   rehypePlugins={[rehypeRaw]}
                 >
                   {highlightedContent}
@@ -301,7 +301,7 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
 
         {/* Floating Tooltip */}
         {selection && !isAddingComment && (
-          <button 
+          <button
             className="floating-comment-trigger"
             style={{ left: selection.x, top: selection.y - 10 }}
             onClick={(e) => { e.stopPropagation(); setIsAddingComment(true); }}
@@ -312,7 +312,7 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
 
         {/* Comment Input Popover */}
         {isAddingComment && (
-          <div 
+          <div
             className="comment-input-popover"
             style={{ left: selection.x, top: selection.y - 10 }}
             onClick={(e) => e.stopPropagation()}
@@ -320,7 +320,7 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
             <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '8px', fontStyle: 'italic' }}>
               Annotating: "{selection.text.substring(0, 40)}{selection.text.length > 40 ? '...' : ''}"
             </div>
-            <textarea 
+            <textarea
               autoFocus
               placeholder="What specifically should change here?"
               value={comment}
@@ -357,29 +357,29 @@ function App() {
     }).catch(console.error);
   }, []);
 
-  const [file, setFile]               = useState(null);
+  const [file, setFile] = useState(null);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadLogs, setUploadLogs]   = useState([]);
+  const [uploadLogs, setUploadLogs] = useState([]);
   const [markdownContent, setMarkdownContent] = useState('');
-  const [query, setQuery]             = useState('');
-  const [isRunning, setIsRunning]     = useState(false);
+  const [query, setQuery] = useState('');
+  const [isRunning, setIsRunning] = useState(false);
 
   // Chat
-  const [messages, setMessages]     = useState([]);
-  const [activeTab, setActiveTab]   = useState('chat');
+  const [messages, setMessages] = useState([]);
+  const [activeTab, setActiveTab] = useState('chat');
   const [showFullLog, setShowFullLog] = useState(false);
   const [expandedTimelineSteps, setExpandedTimelineSteps] = useState(new Set());
 
   // Plan review
-  const [planContent, setPlanContent]   = useState('');
+  const [planContent, setPlanContent] = useState('');
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [selectedMetadataFile, setSelectedMetadataFile] = useState(null);
 
   // Code editor
-  const [editorCode, setEditorCode]       = useState('');
-  const [originalCode, setOriginalCode]   = useState('');
-  const [editorOutput, setEditorOutput]   = useState('');
+  const [editorCode, setEditorCode] = useState('');
+  const [originalCode, setOriginalCode] = useState('');
+  const [editorOutput, setEditorOutput] = useState('');
   const [isCodeRunning, setIsCodeRunning] = useState(false);
   const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(true);
   const [terminalHeight, setTerminalHeight] = useState(240);
@@ -387,16 +387,16 @@ function App() {
   const [isResizing, setIsResizing] = useState(false);
 
   // File Viewer
-  const [exploreFiles, setExploreFiles]     = useState([]);
+  const [exploreFiles, setExploreFiles] = useState([]);
   const [selectedFilePath, setSelectedFilePath] = useState('');
-  const [sheetData, setSheetData]           = useState(null);
-  const [sheetLoading, setSheetLoading]     = useState(false);
-  const [sheetFilters, setSheetFilters]     = useState({ col: '', vals: [] });
-  const [sheetSort, setSheetSort]           = useState({ col: '', asc: true });
-  const [sheetLimit, setSheetLimit]         = useState({ type: 'top', n: 50 });
+  const [sheetData, setSheetData] = useState(null);
+  const [sheetLoading, setSheetLoading] = useState(false);
+  const [sheetFilters, setSheetFilters] = useState({ col: '', vals: [] });
+  const [sheetSort, setSheetSort] = useState({ col: '', asc: true });
+  const [sheetLimit, setSheetLimit] = useState({ type: 'top', n: 50 });
 
   const chatEndRef = useRef(null);
-  const wsRef      = useRef(null);
+  const wsRef = useRef(null);
   const textareaRef = useRef(null);
 
   // ── Auto-resize textarea ────────────────────────────────────────────────
@@ -470,7 +470,7 @@ function App() {
       // Auto-save before running
       await axios.post(`${API_BASE}/api/code`, { code: editorCode });
       setOriginalCode(editorCode);
-      
+
       const res = await axios.post(`${API_BASE}/api/run_code`);
       if (res.data.status === 'success' || res.data.status === 'error') {
         setEditorOutput(res.data.output || 'Execution completed with no output.');
@@ -500,9 +500,9 @@ function App() {
   };
 
   // ── Drag & Drop ──────────────────────────────────────────────────────────
-  const onDragOver  = (e) => { e.preventDefault(); e.currentTarget.classList.add('dragging'); };
+  const onDragOver = (e) => { e.preventDefault(); e.currentTarget.classList.add('dragging'); };
   const onDragLeave = (e) => { e.currentTarget.classList.remove('dragging'); };
-  const onDrop      = (e) => {
+  const onDrop = (e) => {
     e.preventDefault();
     e.currentTarget.classList.remove('dragging');
     if (e.dataTransfer.files?.[0]) handleFileUpload(e.dataTransfer.files[0]);
@@ -512,9 +512,9 @@ function App() {
   const handleFileUpload = async (selectedFile) => {
     const isCsv = selectedFile.name.endsWith('.csv');
     const isParquet = selectedFile.name.endsWith('.parquet');
-    if (!isCsv && !isParquet) { 
-      alert('Please upload a valid CSV or Parquet file.'); 
-      return; 
+    if (!isCsv && !isParquet) {
+      alert('Please upload a valid CSV or Parquet file.');
+      return;
     }
     setFile(selectedFile);
     setIsUploading(true);
@@ -564,8 +564,8 @@ function App() {
 
   // ── WebSocket / run analysis ─────────────────────────────────────────────
   const runAnalysis = () => {
-    if (!query.trim())              { alert('Please enter a request.'); return; }
-    if (!file && !markdownContent)  { alert('Please upload a CSV file first.'); return; }
+    if (!query.trim()) { alert('Please enter a request.'); return; }
+    if (!file && !markdownContent) { alert('Please upload a CSV file first.'); return; }
 
     const isFollowup = isRunning && wsRef.current && wsRef.current.readyState === WebSocket.OPEN;
 
@@ -614,7 +614,7 @@ function App() {
       if (agentMatch) {
         const sender = agentMatch[1];
         const whitelist = ['manager', 'metadata_specialist', 'planner', 'coder', 'feedbackagent', 'userproxy', 'resultinterpreter'];
-        
+
         if (whitelist.includes(sender.toLowerCase())) {
           setMessages(prev => {
             currentMessage = {
@@ -655,7 +655,7 @@ function App() {
 
       // ── System / status messages ─────────────────────────────────────────
       if (line.startsWith('[SYSTEM') || line.startsWith('[INFO') ||
-          line.startsWith('[OK')     || line.startsWith('[ERROR')) {
+        line.startsWith('[OK') || line.startsWith('[ERROR')) {
         currentMessage = null;
         return;
       }
@@ -674,10 +674,10 @@ function App() {
             setMessages(prev => {
               const next = [...prev];
               const lastIdx = next.findLastIndex(m => m?.id === currentMessage?.id);
-              
+
               // Fallback: if not found by ID (race condition), use last message if sender matches
-              const targetIdx = lastIdx !== -1 ? lastIdx : (next.length > 0 && next[next.length-1]?.sender === currentMessage?.sender ? next.length-1 : -1);
-              
+              const targetIdx = lastIdx !== -1 ? lastIdx : (next.length > 0 && next[next.length - 1]?.sender === currentMessage?.sender ? next.length - 1 : -1);
+
               if (targetIdx !== -1 && next[targetIdx]) {
                 const prevContent = next[targetIdx].content || '';
                 let lineToProcess = line;
@@ -685,7 +685,7 @@ function App() {
                 const isSeparator = isTableLine && lineToProcess.includes('---');
                 const trimmedPrev = prevContent.trimEnd();
                 let newContent = prevContent + lineToProcess + '\n';
-                
+
                 // 2. Cohesive Stitching & Table Isolation
                 if (isTableLine && trimmedPrev.length > 0) {
                   const lines = trimmedPrev.split('\n');
@@ -696,9 +696,9 @@ function App() {
                   if (wasLastLineTable) {
                     // If this is a separator line and we already have one, skip it to avoid "unwanted columns/rows"
                     if (isSeparator && prevHasSeparator) {
-                       newContent = prevContent; // Skip this line
+                      newContent = prevContent; // Skip this line
                     } else {
-                       newContent = trimmedPrev + '\n' + lineToProcess + '\n';
+                      newContent = trimmedPrev + '\n' + lineToProcess + '\n';
                     }
                   } else {
                     // Start new table
@@ -712,7 +712,7 @@ function App() {
                     newContent = trimmedPrev + '\n\n' + lineToProcess + '\n';
                   }
                 }
-                
+
                 next[targetIdx] = { ...next[targetIdx], content: newContent };
               }
               return next;
@@ -766,13 +766,13 @@ function App() {
 
   const getAgentHeaderStyle = (sender) => {
     const map = {
-      manager:             ['agent-label manager', 'Manager'],
+      manager: ['agent-label manager', 'Manager'],
       metadata_specialist: ['agent-label meta', 'Metadata Specialist'],
-      planner:             ['agent-label planner', 'Planner'],
-      coder:               ['agent-label coder', 'Coder'],
-      executor:            ['agent-label executor', 'Executor'],
-      feedbackagent:       ['agent-label validator', 'Validator'],
-      resultinterpreter:   ['agent-label manager', 'Result Analyst'],
+      planner: ['agent-label planner', 'Planner'],
+      coder: ['agent-label coder', 'Coder'],
+      executor: ['agent-label executor', 'Executor'],
+      feedbackagent: ['agent-label validator', 'Validator'],
+      resultinterpreter: ['agent-label manager', 'Root Analyst'],
     };
     const [cls, label] = map[sender?.toLowerCase()] ?? ['agent-label', sender];
     return <div className={cls}>{label}</div>;
@@ -787,25 +787,25 @@ function App() {
         </button>
 
         <nav className="sidebar-nav">
-          <div 
+          <div
             className={`sidebar-item ${activeTab === 'chat' ? 'active' : ''}`}
             onClick={() => setActiveTab('chat')}
           >
             <Bot size={18} /> Conversations
           </div>
-          <div 
+          <div
             className={`sidebar-item ${activeTab === 'fileviewer' ? 'active' : ''}`}
             onClick={() => setActiveTab('fileviewer')}
           >
             <Folder size={18} /> Filesystem
           </div>
-          <div 
+          <div
             className={`sidebar-item ${activeTab === 'code' ? 'active' : ''}`}
             onClick={() => setActiveTab('code')}
           >
             <Code size={18} /> Source Code
           </div>
-          <div 
+          <div
             className={`sidebar-item ${activeTab === 'markdown' ? 'active' : ''}`}
             onClick={() => setActiveTab('markdown')}
           >
@@ -822,7 +822,7 @@ function App() {
                   {f.endsWith('.parquet') ? <Layers size={14} color="#10b981" /> : <Database size={14} color="#60a5fa" />}
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f}</span>
                 </div>
-                <button 
+                <button
                   onClick={() => handleDeleteFile(f)}
                   style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
                 >
@@ -882,13 +882,13 @@ function App() {
         <header className="header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <h1 style={{ margin: 0, fontSize: '1.2rem', background: 'linear-gradient(90deg, #60a5fa, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontWeight: 600 }}>
-              AutoGen Analyst
+              Agentic Analysis
             </h1>
             <span className="status-badge" style={{ fontSize: '0.7rem', background: isRunning ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.05)', color: isRunning ? '#10b981' : '#94a3b8', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
               {isRunning ? 'Agent Active' : 'Idle'}
             </span>
           </div>
-          
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             {activeTab === 'code' && (
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -905,7 +905,7 @@ function App() {
         </header>
 
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          
+
           {/* 1. Chat View */}
           {activeTab === 'chat' && (
             <>
@@ -938,112 +938,112 @@ function App() {
 
                     return (
                       <>
-                        
-                          {sessionBlocks.map((block, bIdx) => {
-                            if (!block || block.length === 0) return null;
-                            
-                            const resultIdx = block.findIndex(m => m && m.sender?.toLowerCase() === 'resultinterpreter');
-                            const isLastBlock = bIdx === sessionBlocks.length - 1;
-                            
-                            const canCollapse = resultIdx !== -1 && (!isLastBlock || !isRunning);
-                            
-                            const blockHistory = resultIdx !== -1 ? block.slice(0, resultIdx) : block;
-                            const blockResults = resultIdx !== -1 ? block.slice(resultIdx) : [];
 
-                            return (
-                              <div key={`block-${bIdx}`} className="session-block" style={{ marginBottom: isLastBlock ? 0 : '40px', borderBottom: isLastBlock ? 'none' : '1px solid rgba(255,255,255,0.05)', paddingBottom: isLastBlock ? 0 : '40px' }}>
-                                {(() => {
-                                  const userMsg = block.find(m => m && m.sender?.toLowerCase() === 'you');
-                                  const restOfHistory = blockHistory.filter(m => m !== userMsg);
-                                  
-                                  return (
-                                    <>
-                                      {/* 1. Always show User Prompt at top right if it exists */}
-                                      {userMsg && (
-                                        <div key={`user-${userMsg?.id}`} className="message-row user" style={{ marginBottom: '48px' }}>
-                                          <div className="avatar">{getAvatarIcon(userMsg.sender)}</div>
-                                          <div className="chat-bubble user-msg">
+                        {sessionBlocks.map((block, bIdx) => {
+                          if (!block || block.length === 0) return null;
+
+                          const resultIdx = block.findIndex(m => m && m.sender?.toLowerCase() === 'resultinterpreter');
+                          const isLastBlock = bIdx === sessionBlocks.length - 1;
+
+                          const canCollapse = resultIdx !== -1 && (!isLastBlock || !isRunning);
+
+                          const blockHistory = resultIdx !== -1 ? block.slice(0, resultIdx) : block;
+                          const blockResults = resultIdx !== -1 ? block.slice(resultIdx) : [];
+
+                          return (
+                            <div key={`block-${bIdx}`} className="session-block" style={{ marginBottom: isLastBlock ? 0 : '40px', borderBottom: isLastBlock ? 'none' : '1px solid rgba(255,255,255,0.05)', paddingBottom: isLastBlock ? 0 : '40px' }}>
+                              {(() => {
+                                const userMsg = block.find(m => m && m.sender?.toLowerCase() === 'you');
+                                const restOfHistory = blockHistory.filter(m => m !== userMsg);
+
+                                return (
+                                  <>
+                                    {/* 1. Always show User Prompt at top right if it exists */}
+                                    {userMsg && (
+                                      <div key={`user-${userMsg?.id}`} className="message-row user" style={{ marginBottom: '48px' }}>
+                                        <div className="avatar">{getAvatarIcon(userMsg.sender)}</div>
+                                        <div className="chat-bubble user-msg">
+                                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
+                                            {userMsg.content || ''}
+                                          </ReactMarkdown>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {!canCollapse ? (
+                                      block.filter(m => m !== userMsg).map((msg) => msg && (
+                                        <div key={`flat-${msg?.id || Math.random()}`} className={`message-row ${(msg.type || '').toLowerCase() === 'user' ? 'user' : ''}`} style={{ marginBottom: '48px' }}>
+                                          <div className="avatar">{getAvatarIcon(msg.sender)}</div>
+                                          <div className={`chat-bubble ${(msg.type || '').toLowerCase() === 'agent' ? 'agent' : (msg.type || '').toLowerCase() === 'user' ? 'user-msg' : 'system'}`}>
+                                            {msg.type === 'agent' && getAgentHeaderStyle(msg.sender)}
                                             <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
-                                              {userMsg.content || ''}
+                                              {msg.content || ''}
                                             </ReactMarkdown>
                                           </div>
                                         </div>
-                                      )}
+                                      ))
+                                    ) : (
+                                      <>
+                                        {restOfHistory.length > 0 && (
+                                          <div className="reasoning-container" style={{ marginLeft: '60px' }}>
+                                            <button
+                                              className="reasoning-toggle"
+                                              style={{ marginLeft: 0 }}
+                                              onClick={() => setIsHistoryCollapsed(!isHistoryCollapsed)}
+                                            >
+                                              <ChevronDown size={14} style={{ transform: isHistoryCollapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.2s' }} />
+                                              {isHistoryCollapsed ? `Show Agent thought process (${restOfHistory.length} steps)` : 'Hide Agent thought process'}
+                                            </button>
 
-                                      {!canCollapse ? (
-                                        block.filter(m => m !== userMsg).map((msg) => msg && (
-                                          <div key={`flat-${msg?.id || Math.random()}`} className={`message-row ${(msg.type || '').toLowerCase() === 'user' ? 'user' : ''}`} style={{ marginBottom: '48px' }}>
+                                            {!isHistoryCollapsed && (
+                                              <div className="reasoning-content">
+                                                {restOfHistory.map((msg) => msg && (
+                                                  <div key={`hist-${msg?.id || Math.random()}`} className={`message-row ${(msg.type || "").toLowerCase() === "user" ? "user" : ""}`} style={{ opacity: 0.8, transform: "scale(0.98)", transformOrigin: "left", marginBottom: "32px" }}>
+                                                    <div className="avatar" style={{ width: "28px", height: "28px" }}>{getAvatarIcon(msg.sender)}</div>
+                                                    <div className={`chat-bubble ${(msg.type || "").toLowerCase() === "agent" ? "agent" : (msg.type || "").toLowerCase() === "user" ? "user-msg" : "system"}`}>
+                                                      {msg.type === "agent" && getAgentHeaderStyle(msg.sender)}
+                                                      <div className="markdown-content">
+                                                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
+                                                          {msg.content || ""}
+                                                        </ReactMarkdown>
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        )}
+
+                                        {blockResults.map((msg) => msg && (
+                                          <div key={`res-${msg?.id || Math.random()}`} className={`message-row ${(msg.type || "").toLowerCase() === "user" ? "user" : ""}`} style={{ marginBottom: "64px" }}>
                                             <div className="avatar">{getAvatarIcon(msg.sender)}</div>
-                                            <div className={`chat-bubble ${(msg.type || '').toLowerCase() === 'agent' ? 'agent' : (msg.type || '').toLowerCase() === 'user' ? 'user-msg' : 'system'}`}>
-                                              {msg.type === 'agent' && getAgentHeaderStyle(msg.sender)}
-                                              <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
-                                                {msg.content || ''}
-                                              </ReactMarkdown>
+                                            <div className={`chat-bubble ${(msg.type || "").toLowerCase() === "agent" ? "agent" : (msg.type || "").toLowerCase() === "user" ? "user-msg" : "system"} ${msg.sender?.toLowerCase() === "resultinterpreter" ? "final-result" : ""}`}>
+                                              {msg.type === "agent" && getAgentHeaderStyle(msg.sender)}
+                                              <div className="markdown-content">
+                                                <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
+                                                  {msg.content || ""}
+                                                </ReactMarkdown>
+                                              </div>
                                             </div>
                                           </div>
-                                        ))
-                                      ) : (
-                                        <>
-                                          {restOfHistory.length > 0 && (
-                                            <div className="reasoning-container" style={{ marginLeft: '60px' }}>
-                                              <button 
-                                                className="reasoning-toggle"
-                                                style={{ marginLeft: 0 }}
-                                                onClick={() => setIsHistoryCollapsed(!isHistoryCollapsed)}
-                                              >
-                                                <ChevronDown size={14} style={{ transform: isHistoryCollapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.2s' }} />
-                                                {isHistoryCollapsed ? `Show Agent thought process (${restOfHistory.length} steps)` : 'Hide Agent thought process'}
-                                              </button>
-                                              
-                                              {!isHistoryCollapsed && (
-                                                <div className="reasoning-content">
-                                                   {restOfHistory.map((msg) => msg && (
-                                                     <div key={`hist-${msg?.id || Math.random()}`} className={`message-row ${(msg.type || "").toLowerCase() === "user" ? "user" : ""}`} style={{ opacity: 0.8, transform: "scale(0.98)", transformOrigin: "left", marginBottom: "32px" }}>
-                                                       <div className="avatar" style={{ width: "28px", height: "28px" }}>{getAvatarIcon(msg.sender)}</div>
-                                                       <div className={`chat-bubble ${(msg.type || "").toLowerCase() === "agent" ? "agent" : (msg.type || "").toLowerCase() === "user" ? "user-msg" : "system"}`}>
-                                                         {msg.type === "agent" && getAgentHeaderStyle(msg.sender)}
-                                                         <div className="markdown-content">
-                                                           <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
-                                                             {msg.content || ""}
-                                                           </ReactMarkdown>
-                                                         </div>
-                                                       </div>
-                                                     </div>
-                                                   ))}
-                                                </div>
-                                              )}
-                                            </div>
-                                          )}
-                                          
-                                           {blockResults.map((msg) => msg && (
-                                             <div key={`res-${msg?.id || Math.random()}`} className={`message-row ${(msg.type || "").toLowerCase() === "user" ? "user" : ""}`} style={{ marginBottom: "64px" }}>
-                                               <div className="avatar">{getAvatarIcon(msg.sender)}</div>
-                                               <div className={`chat-bubble ${(msg.type || "").toLowerCase() === "agent" ? "agent" : (msg.type || "").toLowerCase() === "user" ? "user-msg" : "system"} ${msg.sender?.toLowerCase() === "resultinterpreter" ? "final-result" : ""}`}>
-                                                 {msg.type === "agent" && getAgentHeaderStyle(msg.sender)}
-                                                 <div className="markdown-content">
-                                                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
-                                                     {msg.content || ""}
-                                                   </ReactMarkdown>
-                                                 </div>
-                                               </div>
-                                             </div>
-                                           ))}
-                                        </>
-                                      )}
-                                    </>
-                                  );
-                                })()}
-                              </div>
-                            );
-                          })}
-                        
+                                        ))}
+                                      </>
+                                    )}
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          );
+                        })}
+
 
                         {isRunning && (
                           <div className="message-row">
                             <div className="avatar"><Bot size={20} color="#60a5fa" /></div>
                             <div className="chat-bubble agent">
-                               <div className="spinner-border" style={{ width: '16px', height: '16px', borderWidth: '0.15em', marginRight: '8px' }} />
-                               <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Agent ecosystem is thinking...</span>
+                              <div className="spinner-border" style={{ width: '16px', height: '16px', borderWidth: '0.15em', marginRight: '8px' }} />
+                              <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Agent ecosystem is thinking...</span>
                             </div>
                           </div>
                         )}
@@ -1072,8 +1072,8 @@ function App() {
                       }
                     }}
                   />
-                  <button 
-                    className="send-btn" 
+                  <button
+                    className="send-btn"
                     onClick={runAnalysis}
                     disabled={!query.trim() || isUploading || isRunning}
                   >
@@ -1123,8 +1123,8 @@ function App() {
                   theme="vs-dark"
                   value={editorCode}
                   onChange={(value) => setEditorCode(value)}
-                  options={{ 
-                    minimap: { enabled: false }, 
+                  options={{
+                    minimap: { enabled: false },
                     fontSize: 14,
                     automaticLayout: true,
                     scrollBeyondLastLine: false,
@@ -1133,36 +1133,36 @@ function App() {
                 />
               </div>
               {editorOutput && (
-                <div 
-                  className={`execution-terminal ${isTerminalMinimized ? 'minimized' : ''}`} 
+                <div
+                  className={`execution-terminal ${isTerminalMinimized ? 'minimized' : ''}`}
                   style={{ height: isTerminalMinimized ? '36px' : `${terminalHeight}px`, flexShrink: 0 }}
                 >
-                   <div className="terminal-resize-handle" onMouseDown={() => {
-                     if (isTerminalMinimized) setIsTerminalMinimized(false);
-                     setIsResizing(true);
-                   }} />
-                   <div className="terminal-header" onClick={() => setIsTerminalMinimized(!isTerminalMinimized)} style={{ cursor: 'pointer' }}>
-                     <div className="terminal-title">
-                       <Terminal size={14} /> Execution Output
-                     </div>
-                     <div style={{ display: 'flex', gap: '4px' }}>
-                       <button className="terminal-btn" onClick={(e) => { e.stopPropagation(); setIsTerminalMinimized(!isTerminalMinimized); }}>
-                         {isTerminalMinimized ? <Maximize2 size={14} /> : <Minus size={14} />}
-                       </button>
-                       <button className="terminal-btn close" onClick={(e) => { e.stopPropagation(); setEditorOutput(''); }}><X size={14} /></button>
-                     </div>
-                   </div>
-                   {!isTerminalMinimized && (
-                     <div className="terminal-body">
-                       {isCodeRunning && (
-                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', color: '#60a5fa' }}>
-                           <div className="spinner-border spinner-border-sm" />
-                           <span>Process running...</span>
-                         </div>
-                       )}
-                       <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontOverflow: 'wrap' }}>{editorOutput}</pre>
-                     </div>
-                   )}
+                  <div className="terminal-resize-handle" onMouseDown={() => {
+                    if (isTerminalMinimized) setIsTerminalMinimized(false);
+                    setIsResizing(true);
+                  }} />
+                  <div className="terminal-header" onClick={() => setIsTerminalMinimized(!isTerminalMinimized)} style={{ cursor: 'pointer' }}>
+                    <div className="terminal-title">
+                      <Terminal size={14} /> Execution Output
+                    </div>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button className="terminal-btn" onClick={(e) => { e.stopPropagation(); setIsTerminalMinimized(!isTerminalMinimized); }}>
+                        {isTerminalMinimized ? <Maximize2 size={14} /> : <Minus size={14} />}
+                      </button>
+                      <button className="terminal-btn close" onClick={(e) => { e.stopPropagation(); setEditorOutput(''); }}><X size={14} /></button>
+                    </div>
+                  </div>
+                  {!isTerminalMinimized && (
+                    <div className="terminal-body">
+                      {isCodeRunning && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', color: '#60a5fa' }}>
+                          <div className="spinner-border spinner-border-sm" />
+                          <span>Process running...</span>
+                        </div>
+                      )}
+                      <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontOverflow: 'wrap' }}>{editorOutput}</pre>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1176,26 +1176,26 @@ function App() {
                 <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.1em', marginBottom: '20px' }}>SELECT DATASET</div>
                 {uploadedFiles.length > 0 ? (
                   uploadedFiles.map(f => (
-                    <div 
+                    <div
                       key={`md-list-${f}`}
                       className={`metadata-list-item ${selectedMetadataFile === f ? 'active' : ''}`}
                       onClick={() => setSelectedMetadataFile(f)}
-                      style={{ 
-                        padding: '12px 16px', 
-                        borderRadius: '10px', 
-                        marginBottom: '8px', 
+                      style={{
+                        padding: '12px 16px',
+                        borderRadius: '10px',
+                        marginBottom: '8px',
                         cursor: 'pointer',
                         transition: 'all 0.2s',
                         background: selectedMetadataFile === f ? 'rgba(96, 165, 250, 0.15)' : 'rgba(255,255,255,0.03)',
                         border: '1px solid',
                         borderColor: selectedMetadataFile === f ? 'rgba(96, 165, 250, 0.3)' : 'transparent',
-                       }}
+                      }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden', width: '100%' }}>
                         {f.endsWith('.parquet') ? <Layers size={16} color={selectedMetadataFile === f ? '#10b981' : 'var(--text-secondary)'} /> : <Database size={16} color={selectedMetadataFile === f ? '#60a5fa' : 'var(--text-secondary)'} />}
-                        <span style={{ 
-                          fontSize: '0.9rem', 
-                          color: selectedMetadataFile === f ? '#fff' : 'var(--text-secondary)', 
+                        <span style={{
+                          fontSize: '0.9rem',
+                          color: selectedMetadataFile === f ? '#fff' : 'var(--text-secondary)',
                           fontWeight: selectedMetadataFile === f ? 600 : 400,
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
@@ -1217,62 +1217,62 @@ function App() {
                 <div style={{ maxWidth: '900px', margin: '0 auto' }}>
                   {selectedMetadataFile ? (
                     <div style={{ paddingBottom: '100px' }}>
-                       <div style={{ 
-                         marginBottom: '40px', 
-                         display: 'flex', 
-                         alignItems: 'center', 
-                         gap: '16px',
-                         background: 'rgba(255,255,255,0.03)',
-                         padding: '20px 28px',
-                         borderRadius: '16px',
-                         border: '1px solid var(--glass-border)',
-                         backdropFilter: 'blur(10px)'
-                       }}>
-                          <div style={{ 
-                            width: '48px', 
-                            height: '48px', 
-                            borderRadius: '12px', 
-                            background: selectedMetadataFile.endsWith('.parquet') ? 'rgba(16, 185, 129, 0.1)' : 'rgba(96, 165, 250, 0.1)', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center' 
-                          }}>
-                            {selectedMetadataFile.endsWith('.parquet') ? <Layers size={24} color="#10b981" /> : <Database size={24} color="#60a5fa" />}
+                      <div style={{
+                        marginBottom: '40px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '16px',
+                        background: 'rgba(255,255,255,0.03)',
+                        padding: '20px 28px',
+                        borderRadius: '16px',
+                        border: '1px solid var(--glass-border)',
+                        backdropFilter: 'blur(10px)'
+                      }}>
+                        <div style={{
+                          width: '48px',
+                          height: '48px',
+                          borderRadius: '12px',
+                          background: selectedMetadataFile.endsWith('.parquet') ? 'rgba(16, 185, 129, 0.1)' : 'rgba(96, 165, 250, 0.1)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          {selectedMetadataFile.endsWith('.parquet') ? <Layers size={24} color="#10b981" /> : <Database size={24} color="#60a5fa" />}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.05em', marginBottom: '4px' }}>ACTIVE DATASET</div>
+                          <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: '#fff' }}>{selectedMetadataFile}</h1>
+                        </div>
+                      </div>
+                      {/* Filter markdown content to show only the selected file section */}
+                      {(() => {
+                        // Clean content and split by file header
+                        const sections = markdownContent.split(/## File: /);
+                        const targetSection = sections.find(s => {
+                          const lines = s.trim().split('\n');
+                          if (lines.length === 0) return false;
+                          const headerFilename = lines[0].trim();
+                          // Exact match
+                          if (headerFilename === selectedMetadataFile) return true;
+                          // Base name match (fallback for extension mismatches)
+                          const baseHeader = headerFilename.split('.')[0];
+                          const baseSelected = selectedMetadataFile.split('.')[0];
+                          return baseHeader === baseSelected && baseHeader.length > 0;
+                        });
+
+                        if (targetSection) {
+                          const lines = targetSection.trim().split('\n');
+                          const content = lines.slice(1).join('\n').trim();
+                          return <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>;
+                        }
+                        return (
+                          <div style={{ textAlign: 'center', marginTop: '60px', opacity: 0.5 }}>
+                            <Database size={48} style={{ marginBottom: '16px' }} />
+                            <p>Metadata not found for <strong>{selectedMetadataFile}</strong>.</p>
+                            <p style={{ fontSize: '0.85rem' }}>Try re-uploading the file to regenerate its profile.</p>
                           </div>
-                          <div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.05em', marginBottom: '4px' }}>ACTIVE DATASET</div>
-                            <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: '#fff' }}>{selectedMetadataFile}</h1>
-                          </div>
-                       </div>
-                       {/* Filter markdown content to show only the selected file section */}
-                       {(() => {
-                         // Clean content and split by file header
-                         const sections = markdownContent.split(/## File: /);
-                         const targetSection = sections.find(s => {
-                            const lines = s.trim().split('\n');
-                            if (lines.length === 0) return false;
-                            const headerFilename = lines[0].trim();
-                            // Exact match
-                            if (headerFilename === selectedMetadataFile) return true;
-                            // Base name match (fallback for extension mismatches)
-                            const baseHeader = headerFilename.split('.')[0];
-                            const baseSelected = selectedMetadataFile.split('.')[0];
-                            return baseHeader === baseSelected && baseHeader.length > 0;
-                         });
-                         
-                         if (targetSection) {
-                            const lines = targetSection.trim().split('\n');
-                            const content = lines.slice(1).join('\n').trim();
-                            return <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>;
-                         }
-                         return (
-                           <div style={{ textAlign: 'center', marginTop: '60px', opacity: 0.5 }}>
-                             <Database size={48} style={{ marginBottom: '16px' }} />
-                             <p>Metadata not found for <strong>{selectedMetadataFile}</strong>.</p>
-                             <p style={{ fontSize: '0.85rem' }}>Try re-uploading the file to regenerate its profile.</p>
-                           </div>
-                         );
-                       })()}
+                        );
+                      })()}
                     </div>
                   ) : (
                     <div style={{ textAlign: 'center', marginTop: '100px', opacity: 0.4 }}>
