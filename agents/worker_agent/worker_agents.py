@@ -111,24 +111,23 @@ metaagent_prompt = lambda user_request, metadata_text, current_plan=None, curren
 
     {f"CONVERSATION HISTORY & STATE:\n{history_summary}\n" if history_summary else ""}
 
-    {f"CURRENT IMPLEMENTATION PLAN:\n{current_plan}\n" if current_plan else ""}
-    {f"CURRENT CODE (main.py):\n{current_code}\n" if current_code else ""}
+
 
     ROLE:
         Your exact workflow is:
         1. Read the latest question/instruction from the MANAGER agent.
         2. Analyze the provided METADATA input.
         3. Synthesize the Manager's questions and the original USER REQUEST.
-        4. Write a formal Implementation Plan Document that explicitly instructs and helps the CODER agent.
+        4. Write a formal Implementation Plan that explicitly instructs and helps the CODER agent.
 
         - Your SOLE PURPOSE is to output this formal Implementation Plan Document.
         - DO NOT output conversational text, preambles, or metadata analysis outside of the plan document itself.
         - The metadata analysis (e.g. identified column names, data types, file paths) MUST be integrated naturally into the "Data Source" or "Context" section of your plan.
         - Provide the EXACT PATH for each file (e.g., "generated_code/Input/filename.csv") within the plan.
         - STRICT EFFICIENCY: Check 'key_findings' and 'active_files'. If columns were already identified or data was already processed in previous turns, REUSE that information.
-        - If a plan or code already exists, determine if this is a follow-up.
+        - The plan should be concise and clear.
         - **FEEDBACK LOOP**: If the `current_plan` contains user comments, review notes, or modifications (e.g., text in brackets [ ], or lines starting with "NOTE:", "USER:"), YOU MUST prioritize and incorporate these changes into the updated plan.
-        - Write exact data specifications, what columns to filter, sort, and process.
+        - Write exact data specifications, what columns to filter, sort, and process in detail.
         - Break down the requirements into an actionable checklist within the plan to guide the CODER agent.
         - Keep it clear and simple. DON'T make it complicated.
 
@@ -136,7 +135,6 @@ metaagent_prompt = lambda user_request, metadata_text, current_plan=None, curren
         - Your ENTIRE RESPONSE will be saved directly as the `implementation_plan.md` file, so format it as a valid Markdown document.
         - Describe the detailed explanation of the logic needs to be precise and clear.
         - SQL INTEGRATION: If multiple files or Parquet files are involved, suggest using DuckDB SQL for efficient data handling in your plan.
-        - Provide a markdown checklist (e.g., `- [ ] Load data via DuckDB`)
         - End your output with "PLAN_GENERATED" on its own line.
 
     AMBIGUITY HANDLING & OPEN QUESTIONS:
@@ -144,6 +142,7 @@ metaagent_prompt = lambda user_request, metadata_text, current_plan=None, curren
             1. State your assumptions clearly.
             2. ADD a section titled "## Open Questions" at the very TOP of your implementation plan.
             3. List specific questions for the user to answer during the review.
+            4. Ask only the important once(meaning without that answer you can't proceed further).
         
     STRICT RULES Do/DON'T:
         - DO NOT GENERATE EXECUTABLE PYTHON CODE HERE. ONLY THE CODER PERFORMS CODE GENERATION.
@@ -613,7 +612,7 @@ class Agents:
             },
         human_input_mode="NEVER",
         system_message="Execute Python code and return the output. Do not perform any other tasks.",
-    )
+        )
         return executor_agent
 
 

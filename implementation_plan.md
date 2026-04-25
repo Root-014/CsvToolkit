@@ -1,102 +1,74 @@
-## Implementation Plan: Plot Item Hierarchies
-
-### Context
-
-The user wants to visualize item hierarchies from the dataset. Based on the metadata analysis, there is a hierarchical structure embedded in the **Item.[Product Planning Level]** column which contains 199 unique product planning level values with a naming convention that suggests a multi-level hierarchy.
-
-**Dataset**: `Fact.DownloadResult247872ef3de7467cb8ff769b234539c5.csv`
-- **Location**: `generated_code/Input/Fact.DownloadResult247872ef3de7467cb8ff769b234539c5.csv`
-- **Key Column**: `Item.[Product Planning Level]` (199 unique values)
-
-**Sample Values from Item.[Product Planning Level]**:
-- `Nike_KOBE_KIDS_APPAREL DIVISION_GLOBAL FOOTBALL`
-- `Nike_NOT_SUPPLD_MENS_APPAREL DIVISION_SPORTSWEAR`
-- `Nike_NOT_SUPPLD_WOMENS_APPAREL DIVISION_GLOBAL FOOTBALL`
-- `Nike_NOT_SUPPLD_MENS_FOOTWEAR DIVISION_SKATE`
-
-The naming convention suggests a hierarchy structure:
-- **Level 1**: Brand (Nike)
-- **Level 2**: Sub-brand (KOBE, NOT_SUPPLD)
-- **Level 3**: Consumer Offense (KIDS, MENS, WOMENS)
-- **Level 4**: Product Type (APPAREL, FOOTWEAR, EQUIPMENT)
-- **Level 5**: Division (APPAREL DIVISION, FOOTWEAR DIVISION)
-- **Level 6**: Category/Sport (GLOBAL FOOTBALL, SPORTSWEAR, SKATE)
-
----
-
-## Data Requirements
-
-- [ ] Load CSV file from `generated_code/Input/Fact.DownloadResult247872ef3de7467cb8ff769b234539c5.csv`
-- [ ] Extract unique values from `Item.[Product Planning Level]` column
-- [ ] Parse the hierarchical structure from the naming convention (split by underscore `_`)
-- [ ] Build a parent-child relationship structure for visualization
-- [ ] Optionally aggregate metrics (sum of `Actual Cleansed`) per hierarchy level for sizing nodes
-
----
-
-## Visualization Approach
-
-Recommended visualization types for hierarchical data:
-
-1. **Tree Diagram (Horizontal)**: Shows hierarchy from left to right with connected branches
-2. **Radial Tree / Sunburst**: Circular layout with root at center, branches radiating outward
-3. **Collapsible Tree**: Interactive tree where nodes can be expanded/collapsed
-4. **Dendrogram**: Cluster-style hierarchy diagram
-
-**Recommended**: Use an interactive radial sunburst or collapsible tree to allow exploration of the 6-level hierarchy.
-
----
-
-## Implementation Steps
-
-- [ ] **Step 1**: Load the dataset and extract unique `Item.[Product Planning Level]` values
-- [ ] **Step 2**: Parse each value into hierarchy levels based on the underscore delimiter
-- [ ] **Step 3**: Build a hierarchical tree structure (nested dictionary or networkx graph)
-- [ ] **Step 4**: Optionally calculate aggregated `Actual Cleansed` totals per hierarchy node
-- [ ] **Step 5**: Generate visualization using plotly (interactive) or matplotlib (static)
-- [ ] **Step 6**: Save output as HTML (interactive) or PNG (static)
-
----
-
-## Tools/Libraries
-
-| Library | Purpose |
-|---------|---------|
-| **pandas** | Data loading and parsing |
-| **plotly.express** | Interactive sunburst/radial chart |
-| **plotly.graph_objects** | Custom hierarchical visualizations |
-| **networkx** | Build and analyze hierarchy graph |
-| **matplotlib** | Static tree visualizations |
-| **graphviz** | DOT language-based tree rendering |
-
-**Recommended Primary**: `plotly.express` with `treemap()` or `sunburst()` for interactive exploration.
-
----
-
-## Output Format
-
-- **Primary Deliverable**: Interactive HTML visualization (plotly) allowing zoom, hover tooltips, and drill-down
-- **Secondary Deliverable**: Static PNG image for reporting
-- **Optional**: JSON structure of the hierarchy for downstream processing
-
----
-
 ## Open Questions
 
-1. **Hierarchy Parsing**: Should the hierarchy be parsed strictly by underscore delimiter, or are there other parsing rules (e.g., "APPAREL DIVISION" as a single level)?
-2. **Visualization Preference**: Does the user prefer a horizontal tree, radial sunburst, or treemap?
-3. **Sizing**: Should the hierarchy nodes be sized by `Actual Cleansed` totals, or just show the structure?
-4. **Interactivity**: Is an interactive HTML output preferred, or a static image?
+Before proceeding with the implementation plan, I need to clarify:
+
+1. **Which specific dimension are you asking about?** The dataset contains multiple dimension-like attributes (BusinessOrg, Location, Channel, Item, Time, Class). Are you asking about all of them, or a specific one?
+
+2. **What is the expected output format?** Do you want:
+   - A list of identified hierarchies with their levels?
+   - A visual diagram of the hierarchy relationships?
+   - A data export showing hierarchy mappings?
+
+3. **Is this a fact table or dimension table?** The file name starts with "Fact.DownloadResult..." which suggests this is a fact table. Are you looking for hierarchies within the dimension tables that feed into this fact table, or analyzing the dimensional attributes within this fact?
 
 ---
 
-## Implementation Notes
+## Implementation Plan
 
-- The `Item.[Product Planning Level]` values use underscores as delimiters between hierarchy levels
-- Some levels may contain spaces (e.g., "APPAREL DIVISION") - handle as single level
-- Filter out any invalid or malformed entries that don't follow the expected pattern
-- Consider using DuckDB if memory issues arise with large dataset (2M+ rows)
+### Data Source
+- **File**: `Fact.DownloadResult247872ef3de7467cb8ff769b234539c5.csv`
+- **Path**: Generated from the provided metadata
+- **Total Rows**: 2,018,846
+
+### Context
+Based on the metadata, the following dimension-like attributes are present in the dataset:
+
+| Dimension Prefix | Attribute | Unique Values |
+|-----------------|-----------|---------------|
+| BusinessOrg | [Business Org] | 2 |
+| Location | [Country] | 14 |
+| Location | [Geo Territory] | 7 |
+| Version | [Version Name] | 1 |
+| Channel | [MPU Level 3] | 313 |
+| Channel | [MPU] | 57 |
+| Item | [Product Planning Level] | 199 |
+| Item | [Consumer Offense Cd] | 4 |
+| Time | [Week] | 156 |
+| Class | [Class] | 6 |
+
+### Identified Potential Hierarchies
+
+Based on the column naming conventions and unique value counts, the following hierarchical relationships appear to exist:
+
+1. **Location Hierarchy**:
+   - Level 1 (High): `Location.[Geo Territory]` (7 values: KOREA, JAPAN, BRAZIL, etc.)
+   - Level 2 (Low): `Location.[Country]` (14 values: REPUBLIC OF KOREA, JAPAN, etc.)
+   - *Note*: Geo Territory aggregates Country
+
+2. **Channel Hierarchy**:
+   - Level 1 (High): `Channel.[MPU]` (57 values: KR_ND_NDDC, KR_ND_Value, etc.)
+   - Level 2 (Low): `Channel.[MPU Level 3]` (313 values: NIKE.COM KOREA, NVS KOREA, etc.)
+   - *Note*: MPU is a broader category, MPU Level 3 is more granular
+
+3. **Item Hierarchy**:
+   - Level 1 (High): `Item.[Consumer Offense Cd]` (4 values: KIDS, MENS, WOMENS, NOT_SUPPLD)
+   - Level 2 (Low): `Item.[Product Planning Level]` (199 values: detailed product names)
+   - *Note*: Consumer Offense Cd is a category code, Product Planning Level is the detailed product
+
+### Checklist for CODER Agent
+
+- [ ] Load the CSV file `Fact.DownloadResult247872ef3de7467cb8ff769b234539c5.csv`
+- [ ] Analyze the relationship between `Location.[Geo Territory]` and `Location.[Country]` to confirm hierarchy
+- [ ] Analyze the relationship between `Channel.[MPU]` and `Channel.[MPU Level 3]` to confirm hierarchy
+- [ ] Analyze the relationship between `Item.[Consumer Offense Cd]` and `Item.[Product Planning Level]` to confirm hierarchy
+- [ ] Verify that lower-level values roll up correctly to higher-level values (no orphaned values)
+- [ ] Generate a summary report listing confirmed hierarchies with their levels and member counts
+
+### Assumptions
+- The dimension hierarchy follows the naming pattern shown in the column headers
+- Higher-level (aggregated) dimensions have fewer unique values than lower-level (detailed) dimensions
+- The hierarchy is a parent-child relationship where the parent (higher level) contains the child (lower level)
 
 ---
 
-****
+Please confirm which dimension(s) to analyze or proceed with analyzing all potential hierarchies.

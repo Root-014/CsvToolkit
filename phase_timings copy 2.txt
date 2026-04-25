@@ -24,7 +24,12 @@ without phase 1 agent:
 [2026-04-25 00:55:31] Phase: Result Generation | Duration: 0.00s
 [2026-04-25 00:55:31] Phase: Memory Update | Duration: 11.31s
 
-
+Without planner agent:
+[2026-04-25 09:27:49] Phase: Phase 1: Planning | Duration: 25.26s
+[2026-04-25 09:28:14] Phase: Plan Verification | Duration: 45.93s
+[2026-04-25 09:29:00] Phase: Phase 2: Execution | Duration: 45.21s
+[2026-04-25 09:29:45] Phase: Result Generation | Duration: 0.01s
+[2026-04-25 09:29:45] Phase: Memory Update | Duration: 11.34s
 
 
 
