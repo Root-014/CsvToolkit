@@ -99,8 +99,7 @@ def run_agent_workflow(initial_request, metadata_text):
             # Initialize core agents for Phase 1
             user_proxy = agent_factory.userproxy_agent_init()
             phase1_manager = agent_factory.phase1_manager_init(current_request, is_followup=not is_first_turn, history_summary=history_str)
-            metadata_specialist = agent_factory.metadata_agent_init(metadata_text)
-            planner_agent = agent_factory.planner_agent_init(current_request, current_plan=current_plan, current_code=current_code, history_summary=history_str)
+            metadata_specialist = agent_factory.metadata_agent_init(current_request, metadata_text, current_plan=current_plan, current_code=current_code, history_summary=history_str)
             
             # Phase 1 GroupChat
             phase1_start = datetime.now()
@@ -114,16 +113,13 @@ def run_agent_workflow(initial_request, metadata_text):
                 if last_speaker == phase1_manager:
                     return metadata_specialist
                 if last_speaker == metadata_specialist:
-                    return planner_agent
-                
-                if last_speaker == planner_agent:
                     if "PLAN_GENERATED" in last_msg:
                         return None # End Phase 1
-                    return metadata_specialist
+                    return phase1_manager
                 return None
 
             groupchat1 = GroupChat(
-                agents=[user_proxy, phase1_manager, metadata_specialist, planner_agent],
+                agents=[user_proxy, phase1_manager, metadata_specialist],
                 messages=[],
                 max_round=10,
                 speaker_selection_method=custom_speaker_phase1
@@ -142,10 +138,10 @@ def run_agent_workflow(initial_request, metadata_text):
             phase1_end = datetime.now()
             log_phase_time("Phase 1: Planning", phase1_start, phase1_end)
 
-            # Extract the plan from the last Planner message
-            planner_msgs = [m for m in groupchat1.messages if m.get("name") == "Planner"]
-            if planner_msgs:
-                plan_text = planner_msgs[-1].get("content", "")
+            # Extract the plan from the last Metadata_Specialist message
+            meta_msgs = [m for m in groupchat1.messages if m.get("name") == "Metadata_Specialist"]
+            if meta_msgs:
+                plan_text = meta_msgs[-1].get("content", "")
                 agent_factory.extract_and_save_plan(plan_text)
 
             # CHECKPOINT: PLAN APPROVAL

@@ -37,16 +37,13 @@ USER REQUEST : {user_request}
 
 YOUR TEAM:
 ====================================
-- Metadata_Specialist: Dataset expert (ask about any info related to the dataset ONLY)
-- Planner: Implementation Plan Specialist
+- Metadata_Specialist: Dataset and Implementation Plan expert
 
 WORKFLOW (MANDATORY)
 ====================================
 1. Review the CONVERSATION HISTORY (if provided) to understand what has been done so far.
-2. If this is the first turn or if metadata is missing, immediately ask Metadata_Specialist about the dataset.
-3. If metadata is already known or provided in history, proceed to step 4.
-4. Instruct the Planner to generate or update the implementation plan based on the metadata, history, and user request.
-5. Finalize the plan and present it to the UserProxy.
+2. Instruct the Metadata_Specialist to output the implementation plan document based on the dataset metadata and user request. Ensure you tell them to ONLY output the plan document and no conversational text.
+3. Finalize the plan and present it to the UserProxy.
 
 PROACTIVE GUIDANCE:
 ====================================
@@ -105,81 +102,56 @@ COMMUNICATION RULES (STRICT)
 - ONLY THE CODER HAS AUTHORIZATION TO WRITE CODE.
 """
 
-metaagent_prompt = lambda metadata_text: f""" 
-    
-    You are a METADATA SPECIALIST.
+metaagent_prompt = lambda user_request, metadata_text, current_plan=None, current_code=None, history_summary=None: f""" 
+    You are a METADATA AND PLANNING SPECIALIST.
+
+    USER REQUEST : {user_request}
 
     METADATA : {metadata_text}
 
+    {f"CONVERSATION HISTORY & STATE:\n{history_summary}\n" if history_summary else ""}
+
+    {f"CURRENT IMPLEMENTATION PLAN:\n{current_plan}\n" if current_plan else ""}
+    {f"CURRENT CODE (main.py):\n{current_code}\n" if current_code else ""}
+
     ROLE:
-        - Answer only to questions asked by the Manager.
-        - Identify column names, data types, and relationships across MULTIPLE FILES if present.
-        - Help the Manager understand which file contains which data.
-        - Provide the EXACT PATH for each file (e.g., "generated_code/Input/filename.csv").
-        - Provide concise, factual information. Be direct.
+        Your exact workflow is:
+        1. Read the latest question/instruction from the MANAGER agent.
+        2. Analyze the provided METADATA input.
+        3. Synthesize the Manager's questions and the original USER REQUEST.
+        4. Write a formal Implementation Plan Document that explicitly instructs and helps the CODER agent.
 
-    MULTI-FILE AWARENESS:
-        - If multiple files are listed, always specify which file you are referring to in your answer.
-        - Include the full path "generated_code/Input/[filename].csv" for every file mentioned.
-        - Look for common columns (keys) that could be used to join or relate different files.
+        - Your SOLE PURPOSE is to output this formal Implementation Plan Document.
+        - DO NOT output conversational text, preambles, or metadata analysis outside of the plan document itself.
+        - The metadata analysis (e.g. identified column names, data types, file paths) MUST be integrated naturally into the "Data Source" or "Context" section of your plan.
+        - Provide the EXACT PATH for each file (e.g., "generated_code/Input/filename.csv") within the plan.
+        - STRICT EFFICIENCY: Check 'key_findings' and 'active_files'. If columns were already identified or data was already processed in previous turns, REUSE that information.
+        - If a plan or code already exists, determine if this is a follow-up.
+        - **FEEDBACK LOOP**: If the `current_plan` contains user comments, review notes, or modifications (e.g., text in brackets [ ], or lines starting with "NOTE:", "USER:"), YOU MUST prioritize and incorporate these changes into the updated plan.
+        - Write exact data specifications, what columns to filter, sort, and process.
+        - Break down the requirements into an actionable checklist within the plan to guide the CODER agent.
+        - Keep it clear and simple. DON'T make it complicated.
 
-    DO/DON'T:
-        - DON'T GIVE ANY SUGGESTION JUST RESPOND FOR WHAT WAS ASKED.
-        - DON'T WRITE ANY CODE OR PLAN.
-        - STRICTLY DON'T ASK ANY FOLLOW UP QUESTIONS
-        - SHOULD NOT GIVE ANY INFORMATION THAT WAS NOT REQUESTED.
+    REQUIREMENTS:
+        - Your ENTIRE RESPONSE will be saved directly as the `implementation_plan.md` file, so format it as a valid Markdown document.
+        - Describe the detailed explanation of the logic needs to be precise and clear.
+        - SQL INTEGRATION: If multiple files or Parquet files are involved, suggest using DuckDB SQL for efficient data handling in your plan.
+        - Provide a markdown checklist (e.g., `- [ ] Load data via DuckDB`)
+        - End your output with "PLAN_GENERATED" on its own line.
 
-    RESPONSE FORMAT (STRICT MARKDOWN):
-        - Use Markdown Headers (###) for sections.
-        - ALWAYS use Markdown Tables for column names and data types.
-        - Provide concise, factual information.
-        - Force consistent bullet format for other notes.
-
-    FINAL LINE:
-        METADATA_READY
+    AMBIGUITY HANDLING & OPEN QUESTIONS:
+        - If the user request is underspecified, vague, or if you are unsure about the data/logic:
+            1. State your assumptions clearly.
+            2. ADD a section titled "## Open Questions" at the very TOP of your implementation plan.
+            3. List specific questions for the user to answer during the review.
+        
+    STRICT RULES Do/DON'T:
+        - DO NOT GENERATE EXECUTABLE PYTHON CODE HERE. ONLY THE CODER PERFORMS CODE GENERATION.
+        - Be concise but complete.
+        - Don't include anything unnecessary.
+        - DO NOT WRITE ANY CODE.
+        - USE EXACT COLUMN NAMES and specify which FILE they belong to if multiple files exist.
         """
-
-planner_prompt = lambda user_request, current_plan=None, current_code=None, history_summary=None, metadata=None: f"""
-You are a PLANNER SPECIALIST.
-
-USER REQUEST : {user_request}
-
-{f"CONVERSATION HISTORY & STATE:\n{history_summary}\n" if history_summary else ""}
-
-{f"DATA METADATA:\n{metadata}\n" if metadata else ""}
-
-{f"CURRENT IMPLEMENTATION PLAN:\n{current_plan}\n" if current_plan else ""}
-{f"CURRENT CODE (main.py):\n{current_code}\n" if current_code else ""}
-
-    - Based on the user's request, the provided metadata, and the CONVERSATION HISTORY & STATE, construct a clear implementation plan.
-    - STRICT EFFICIENCY: Check 'key_findings' and 'active_files'. If columns were already identified or data was already processed in previous turns, REUSE that information. DO NOT repeat metadata gathering or basic analysis if it's already in the history.
-    - If a plan or code already exists, determine if this is a follow-up.
-    - **FEEDBACK LOOP**: If the `current_plan` contains user comments, review notes, or modifications (e.g., text in brackets [ ], or lines starting with "NOTE:", "USER:"), YOU MUST prioritize and incorporate these changes into the updated plan.
-    - If it is a follow-up, update the existing plan or create a new one that builds upon the current code and context.
-    - Write exact data specifications, what columns to filter, sort, and process.
-    - Break down the requirements into an actionable checklist.
-    - Keep it clear and simple. DON'T make it complicated.
-    
-REQUIREMENTS:
-    - Describe the detailed explanation of the logic needs to be precise and clear.
-    - SQL INTEGRATION: If multiple files or Parquet files are involved, suggest using DuckDB SQL for efficient data handling in your plan.
-    - Provide a markdown checklist (e.g., `- [ ] Load data via DuckDB`)
-    - Call the function extract_and_save_plan with your final planning document to save it to disk.
-    - End your output with "PLAN_GENERATED"
-
-AMBIGUITY HANDLING & OPEN QUESTIONS:
-    - If the user request is underspecified, vague, or if you are unsure about the data/logic:
-        1. State your assumptions clearly.
-        2. ADD a section titled "## Open Questions" at the very TOP of the plan.
-        3. List specific questions for the user to answer during the review.
-    
-STRICT RULES Do/DON'T:
-    - DO NOT GENERATE EXECUTABLE PYTHON CODE HERE. ONLY THE CODER PERFORMS CODE GENERATION.
-    - Be concise but complete.
-    - Don't include anything unnecessary.
-    - DO NOT WRITE ANY CODE.
-    - USE EXACT COLUMN NAMES and specify which FILE they belong to if multiple files exist.
-"""
 
 coder_agent_prompt = """
 You are a PYTHON CODE SPECIALIST.
@@ -226,15 +198,17 @@ CODE REQUIREMENTS:
     - Use try/except for error handling.
     - **SAFE PRINTING**: Whenever printing a DataFrame, ALWAYS use `.head()` (e.g., `print(df.head())`) to prevent overflowing the terminal with massive logs.
     - Follow the provided implementation plan precisely.
-    - End your output with "TERMINATE"
+
 
 RESPONSE FORMAT:
     - Provide the complete code in a code block 
 
-    eg : 
-```python
-# code here
-```
+    OP FORMAT
+        eg : 
+    ```python
+    # code here
+    ```
+    TERMINATE
 STRICTLY CODE ONLY 
 
 If you need any information then ask Manager AGENT for that.
@@ -501,10 +475,13 @@ class Agents:
 
     def extract_and_save_plan(self, plan_text: str) -> str:
         try:
+            # Clean up the plan text by removing the termination token and extra whitespace
+            clean_plan_text = plan_text.replace("PLAN_GENERATED", "").strip()
+            
             plan_path = os.path.join(self.OUTPUT_DIR, "implementation_plan.md")
             os.makedirs(os.path.dirname(plan_path), exist_ok=True)
             with open(plan_path, "w", encoding="utf-8") as f:
-                f.write(plan_text)
+                f.write(clean_plan_text)
             return f"Plan extracted and saved to {os.path.abspath(plan_path)}"
         except Exception as e:
             return f"Error saving plan: {str(e)}"
@@ -596,22 +573,14 @@ class Agents:
             system_message=phase2_manager_prompt)
         return phase2_manager
 
-    def metadata_agent_init(self, metadata_text):
+    def metadata_agent_init(self, user_request, metadata_text, current_plan=None, current_code=None, history_summary=None):
         meta_agent = autogen.AssistantAgent(
             name="Metadata_Specialist",
-            llm_config=self.get_llm_config(temperature=0.1),
-            system_message=metaagent_prompt(metadata_text)
-        )
-        return meta_agent
-
-    def planner_agent_init(self, user_request, current_plan=None, current_code=None, history_summary=None):
-        planner_agent = autogen.AssistantAgent(
-            name="Planner",
             llm_config=self.get_llm_config(temperature=0.5, max_tokens=3000),
-            system_message=planner_prompt(user_request, current_plan=current_plan, current_code=current_code, history_summary=history_summary, metadata=self.metadata)
+            system_message=metaagent_prompt(user_request, metadata_text, current_plan=current_plan, current_code=current_code, history_summary=history_summary)
         )
-        planner_agent.register_function(function_map={"extract_and_save_plan": self.extract_and_save_plan})
-        return planner_agent
+        meta_agent.register_function(function_map={"extract_and_save_plan": self.extract_and_save_plan})
+        return meta_agent
 
     def coder_agent_init(self):
         coder_agent = autogen.AssistantAgent(
