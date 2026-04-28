@@ -1,85 +1,59 @@
-# Implementation Plan: Hierarchy Analysis in Dimension
-
-## Context
-
-The user is asking to identify hierarchies present in the dimension. Based on the provided METADATA, the dataset is:
-
-- **File**: `Fact.DownloadResult247872ef3de7467cb8ff769b234539c5.csv`
-- **Location**: `generated_code/Input/Fact.DownloadResult247872ef3de7467cb8ff769b234539c5.csv`
-
-The dataset contains dimension columns with bracket notation indicating a dimensional hierarchy structure (e.g., `Location.[Country]`, `Channel.[MPU Level 3]`).
-
-## Data Source
-
-- **Input File**: `generated_code/Input/Fact.DownloadResult247872ef3de7467cb8ff769b234539c5.csv`
-- **Total Rows**: 2,018,846
-- **Dimension Columns Identified**:
-  - `BusinessOrg.[Business Org]` (2 unique values: GSA, NON-GSA)
-  - `Location.[Country]` (14 unique values)
-  - `Location.[Geo Territory]` (7 unique values)
-  - `Version.[Version Name]` (1 unique value)
-  - `Channel.[MPU Level 3]` (313 unique values)
-  - `Channel.[MPU]` (57 unique values)
-  - `Item.[Product Planning Level]` (199 unique values)
-  - `Item.[Consumer Offense Cd]` (4 unique values: KIDS, MENS, WOMENS, NOT_SUPPLD)
-  - `Time.[Week]` (156 unique values)
-  - `Class.[Class]` (6 unique values)
+# Implementation Plan
 
 ## Objective
-
-Identify and document any hierarchical relationships between dimension columns in the dataset.
-
-## Implementation Steps
-
-### Step 1: Analyze Potential Hierarchy Relationships
-
-Based on the column naming convention (prefixes with brackets), the following potential hierarchies should be analyzed:
-
-1. **Location Hierarchy**:
-   - `Location.[Geo Territory]` → `Location.[Country]`
-   - Verify if countries roll up into territories (e.g., KOREA contains REPUBLIC OF KOREA)
-
-2. **Channel Hierarchy**:
-   - `Channel.[MPU]` → `Channel.[MPU Level 3]`
-   - Verify if MPU Level 3 values roll up into MPU categories (e.g., KR_ND_NDDC contains NIKE.COM KOREA)
-
-3. **Item Hierarchy**:
-   - `Item.[Consumer Offense Cd]` → `Item.[Product Planning Level]`
-   - Verify if Product Planning Level values contain Consumer Offense Cd (e.g., KIDS appears in product names)
-
-4. **BusinessOrg Hierarchy**:
-   - `BusinessOrg.[Business Org]` appears to be flat (only 2 values)
-
-### Step 2: Validate Hierarchy Relationships
-
-For each potential hierarchy identified in Step 1:
-
-1. Extract unique values from both parent and child columns
-2. Check if child values can be mapped to parent values through string containment or exact matching
-3. Calculate the percentage of child values that successfully map to parent values
-4. Document the mapping results
-
-### Step 3: Document Findings
-
-Create a hierarchy report including:
-
-1. **Confirmed Hierarchies**: List all hierarchies with valid parent-child relationships
-2. **Partial Hierarchies**: List hierarchies with incomplete mapping
-3. **Flat Dimensions**: List dimensions with no hierarchical structure
-4. **Hierarchy Visualization**: Show the complete hierarchy tree structure
-
-## Open Questions
-
-- **Clarification Needed**: Does the user want only the confirmed hierarchies, or also the non-hierarchical dimensions documented?
-- **Mapping Criteria**: Should strict equality or string containment be used for hierarchy validation?
-
-## Output
-
-The analysis should produce a hierarchy identification report documenting:
-- All confirmed hierarchical relationships
-- Mapping percentages for each relationship
-- Visual representation of the complete dimensional hierarchy structure
+Validate that all sales domains from the ship_to file exist in the source customer file's CUSTOMER_NUMBER field, filtering only for records where ACTIVITY_SOURCE is not null.
 
 ---
 
-****
+## Data Sources
+
+| File | Column | Description |
+|------|--------|-------------|
+| `generated_code/Input/Ship_Tos_copy (2).csv` | `Sales Domain.[Ship to]` | Sales domain values to validate |
+| `generated_code/Input/Source_Customer (1).csv` | `CUSTOMER NUMBER` | Customer numbers to validate against |
+| `generated_code/Input/Source_Customer (1).csv` | `ACTIVITY_SOURCE` | Filter condition - must be NOT NULL |
+
+---
+
+## Logic / Validation Steps
+
+1. **Load Ship_To File:**
+   - Read `Ship_Tos_copy (2).csv`
+   - Extract unique values from column `Sales Domain.[Ship to]`
+
+2. **Load Source Customer File:**
+   - Read `Source_Customer (1).csv`
+   - Filter rows where `ACTIVITY_SOURCE` is NOT NULL (exclude NaN/null values)
+   - Extract unique `CUSTOMER NUMBER` values from filtered data
+
+3. **Validation:**
+   - Compare the two sets:
+     - Identify sales domains from ship_to that are **missing** from source customer
+     - Identify sales domains that **exist** in both
+
+4. **Output:**
+   - Generate a report showing:
+     - Total count of sales domains in ship_to
+     - Total count of active customers (with non-null ACTIVITY_SOURCE)
+     - Count of sales domains found in source customer
+     - Count of sales domains **NOT found** in source customer
+     - List of missing sales domains (if any)
+
+---
+
+## Expected Output File
+- Save results to: `generated_code/Output/sales_domain_validation_result.csv`
+
+---
+
+## Assumptions
+- The "active source" field refers to `ACTIVITY_SOURCE` column in Source_Customer file
+- "Not null" means excluding both NULL values and NaN/missing entries in ACTIVITY_SOURCE
+- Sales domain values should be compared as exact string matches
+
+---
+
+## Open Questions
+None - The metadata provided sufficient details to proceed with implementation.
+
+---
