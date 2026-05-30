@@ -293,6 +293,64 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
 };
 
 // ─── Timings Bar ──────────────────────────────────────────────────────────────
+const PIPELINE_AGENTS = [
+  { key: 'manager',              label: 'Manager',   color: '#60a5fa' },
+  { key: 'metadata_specialist',  label: 'Analyst',   color: '#c084fc' },
+  { key: 'coder',                label: 'Coder',     color: '#34d399' },
+  { key: 'executor',             label: 'Executor',  color: '#fbbf24' },
+  { key: 'feedbackagent',        label: 'Validator', color: '#f87171' },
+];
+
+const ThinkingIndicator = ({ messages }) => {
+  const agentMsgs = messages.filter(m => m?.type === 'agent');
+  const activeKey = agentMsgs.length > 0 ? agentMsgs[agentMsgs.length - 1].sender?.toLowerCase() : null;
+  const spokenKeys = new Set(agentMsgs.map(m => m.sender?.toLowerCase()));
+  const activeAgent = PIPELINE_AGENTS.find(a => a.key === activeKey);
+  const isInitializing = !activeKey;
+
+  return (
+    <div className="thinking-indicator">
+      <div className="thinking-pipeline">
+        {PIPELINE_AGENTS.map((agent, i) => {
+          const isActive = activeKey === agent.key;
+          const isDone  = spokenKeys.has(agent.key) && !isActive;
+          return (
+            <React.Fragment key={agent.key}>
+              <div
+                className={`pipeline-node${isActive ? ' active' : ''}${isDone ? ' done' : ''}${isInitializing ? ' init' : ''}`}
+                style={{ '--node-color': agent.color }}
+              >
+                {isActive && <div className="node-ring" />}
+                <div className="node-dot" />
+                <span className="node-label">{agent.label}</span>
+              </div>
+              {i < PIPELINE_AGENTS.length - 1 && (
+                <div
+                  className={`pipeline-connector${spokenKeys.has(agent.key) ? ' lit' : ''}${isInitializing ? ' init' : ''}`}
+                  style={{ '--left-color': agent.color }}
+                />
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+      <div className="thinking-status">
+        {isInitializing ? (
+          <>Initializing agent ecosystem<span className="thinking-dots"><span>.</span><span>.</span><span>.</span></span></>
+        ) : (
+          <>
+            <span style={{ color: activeAgent?.color ?? '#fff', fontWeight: 600 }}>
+              {activeAgent?.label ?? activeKey}
+            </span>
+            {' '}is processing
+            <span className="thinking-dots"><span>.</span><span>.</span><span>.</span></span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const TimingsBar = ({ lines }) => {
   const parsed = lines
     .map(line => {
@@ -1090,9 +1148,8 @@ function App() {
                     {isRunning && (
                       <div className="message-row">
                         <div className="avatar"><Bot size={20} color="#60a5fa" /></div>
-                        <div className="chat-bubble agent">
-                          <div className="spinner-border" style={{ width: '16px', height: '16px', borderWidth: '0.15em', marginRight: '8px' }} />
-                          <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Agent ecosystem is thinking...</span>
+                        <div className="chat-bubble agent" style={{ padding: 0, background: 'none', border: 'none', boxShadow: 'none' }}>
+                          <ThinkingIndicator messages={messages} />
                         </div>
                       </div>
                     )}
