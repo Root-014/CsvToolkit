@@ -1,0 +1,7 @@
+# Ignore all files in generated_code
+generated_code/*
+
+# Keep folders via placeholder
+!generated_code/.gitkeep
+!generated_code/Input/.gitkeep
+!generated_code/Output/.gitkeep
