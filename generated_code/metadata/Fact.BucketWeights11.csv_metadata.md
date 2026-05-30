@@ -1,4 +1,3 @@
-## File: Fact.BucketWeights11.csv
 **Source File**: `Fact.BucketWeights11.csv`
 **Rows**: 870 | **Columns**: 6
 **Memory Usage**: 176.8 KB
@@ -17,5 +16,3 @@
 ## Time Columns
 
 - **Time.[Partial Week]**: string/object (time-like) — 870 unique values
-
-

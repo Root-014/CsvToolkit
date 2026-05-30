@@ -83,6 +83,7 @@ const MD_COMPONENTS = { code: CodeBlock };
 
 // ─── Plan Review Modal ────────────────────────────────────────────────────────
 const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) => {
+  const [annotations, setAnnotations] = useState([]);
   const [selection, setSelection] = useState(null);
   const [comment, setComment] = useState("");
   const [isAddingComment, setIsAddingComment] = useState(false);
@@ -96,7 +97,6 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
     const fetchPlan = () => {
       axios.get(`${API_BASE}/api/plan`).then((res) => {
         if (!cancelled && res.data.status === 'success' && res.data.content) {
-          console.log("Plan Content Loaded:", res.data.content.length, "chars");
           setPlanContent(res.data.content);
         }
       }).catch(err => console.error("Plan Fetch Error:", err));
@@ -106,20 +106,21 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
     return () => { cancelled = true; clearInterval(interval); };
   }, [planContent, setPlanContent]);
 
-  const annotations = useMemo(() => {
-    if (!planContent) return [];
-    const annRegex = /<!-- ANN:(\{.*?\}) -->/g;
-    const matches = [];
-    let match;
-    while ((match = annRegex.exec(planContent)) !== null) {
-      try {
-        matches.push(JSON.parse(match[1]));
-      } catch (e) {
-        console.error("Annotation Parse error", e);
-      }
+  // Load annotations from sidecar API (plan content stays clean)
+  useEffect(() => {
+    axios.get(`${API_BASE}/api/annotations`)
+      .then(res => { if (res.data.status === 'success') setAnnotations(res.data.annotations || []); })
+      .catch(console.error);
+  }, []);
+
+  const persistAnnotations = async (anns) => {
+    setAnnotations(anns);
+    try {
+      await axios.post(`${API_BASE}/api/annotations`, { annotations: anns });
+    } catch (err) {
+      console.error("Failed to save annotations:", err);
     }
-    return matches;
-  }, [planContent]);
+  };
 
   const handleMouseUp = () => {
     const sel = window.getSelection();
@@ -127,65 +128,26 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
     if (text && text.length > 2) {
       const range = sel.getRangeAt(0);
       const rect = range.getBoundingClientRect();
-      setSelection({
-        text,
-        x: rect.left + rect.width / 2,
-        y: rect.top,
-      });
+      setSelection({ text, x: rect.left + rect.width / 2, y: rect.top });
     } else {
       if (!isAddingComment) setSelection(null);
     }
   };
 
-  const saveUpdatedPlan = async (newContent) => {
-    try {
-      await axios.post(`${API_BASE}/api/plan`, { code: newContent });
-      setPlanContent(newContent);
-    } catch (err) {
-      console.error("Failed to save plan:", err);
-    }
-  };
-
   const submitComment = () => {
     if (!comment.trim() || !selection) return;
-
-    if (editingId) {
-      const ann = annotations.find(a => a?.id === editingId);
-      if (ann) {
-        const oldTag = `<!-- ANN:${JSON.stringify(ann)} -->`;
-        const newAnn = { ...ann, comment: comment.trim() };
-        const newTag = `<!-- ANN:${JSON.stringify(newAnn)} -->`;
-        saveUpdatedPlan(planContent.replace(oldTag, newTag));
-      }
-    } else {
-      const newAnn = { id: Date.now().toString(), text: selection.text, comment: comment.trim() };
-      const commentTag = `<!-- ANN:${JSON.stringify(newAnn)} -->`;
-      const index = planContent.indexOf(selection.text);
-      if (index !== -1) {
-        const updated = planContent.slice(0, index + selection.text.length) +
-          " " + commentTag +
-          planContent.slice(index + selection.text.length);
-        saveUpdatedPlan(updated);
-      }
-    }
-
-    setComment("");
-    setSelection(null);
-    setIsAddingComment(false);
-    setEditingId(null);
+    const newAnns = editingId
+      ? annotations.map(a => a.id === editingId ? { ...a, comment: comment.trim() } : a)
+      : [...annotations, { id: Date.now().toString(), text: selection.text, comment: comment.trim() }];
+    persistAnnotations(newAnns);
+    setComment(""); setSelection(null); setIsAddingComment(false); setEditingId(null);
   };
 
-  const deleteAnnotation = (id) => {
-    const ann = annotations.find(a => a?.id === id);
-    if (ann) {
-      const tag = `<!-- ANN:${JSON.stringify(ann)} -->`;
-      saveUpdatedPlan(planContent.replace(tag, ""));
-    }
-  };
+  const deleteAnnotation = (id) => persistAnnotations(annotations.filter(a => a.id !== id));
 
   const openEdit = (ann) => {
     setComment(ann.comment);
-    setEditingId(ann?.id);
+    setEditingId(ann.id);
     setIsAddingComment(true);
     setSelection({ text: ann.text, x: window.innerWidth / 2, y: window.innerHeight / 2 });
   };
@@ -194,21 +156,16 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
     if (!planContent) return "";
     try {
       let content = planContent;
-      // We sort by length descending to avoid nested partial matches
-      const sortedAnns = [...annotations].sort((a, b) => b.text.length - a.text.length);
-
-      sortedAnns.forEach(ann => {
+      [...annotations].sort((a, b) => b.text.length - a.text.length).forEach(ann => {
         if (!ann.text) return;
-        // Escape special regex chars
         const escaped = ann.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        // Use a more robust regex to identify the text outside of other tags
         const regex = new RegExp(`(${escaped})(?![^<]*>)`, 'g');
-        content = content.replace(regex, `<mark class="plan-highlight" data-id="${ann?.id}">$1</mark>`);
+        content = content.replace(regex, `<mark class="plan-highlight" data-id="${ann.id}">$1</mark>`);
       });
       return content;
     } catch (e) {
       console.error("Highlighting engine error:", e);
-      return planContent; // Fallback to raw content if highlighting fails
+      return planContent;
     }
   }, [planContent, annotations]);
 
@@ -260,7 +217,7 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
                 </div>
               ) : (
                 annotations.map((ann) => (
-                  <div key={ann?.id} className="ann-card">
+                  <div key={ann.id} className="ann-card">
                     <div style={{ fontSize: '0.65rem', color: 'var(--primary)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.05em' }}>
                       Context
                     </div>
@@ -271,7 +228,7 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
                     <div className="ann-comment">{ann.comment}</div>
                     <div className="ann-actions">
                       <button onClick={() => openEdit(ann)} title="Edit"><Pencil size={12} /></button>
-                      <button onClick={() => deleteAnnotation(ann?.id)} title="Delete" className="delete"><Trash2 size={12} /></button>
+                      <button onClick={() => deleteAnnotation(ann.id)} title="Delete" className="delete"><Trash2 size={12} /></button>
                     </div>
                   </div>
                 ))
@@ -288,10 +245,7 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
               </div>
             ) : (
               <div className="annotation-container md-content" ref={containerRef} style={{ padding: '40px', background: '#020617', color: '#f8fafc' }}>
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeRaw]}
-                >
+                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
                   {highlightedContent}
                 </ReactMarkdown>
               </div>
@@ -338,6 +292,29 @@ const PlanReviewModal = ({ planContent, setPlanContent, onApprove, onReject }) =
   );
 };
 
+// ─── Timings Bar ──────────────────────────────────────────────────────────────
+const TimingsBar = ({ lines }) => {
+  const parsed = lines
+    .map(line => {
+      const m = line.match(/Phase: (.+?) \| Duration: ([\d.]+)s/);
+      return m ? { phase: m[1].replace(/^Phase \d+: /, ''), duration: parseFloat(m[2]) } : null;
+    })
+    .filter(Boolean);
+  if (!parsed.length) return null;
+  const total = parsed.reduce((s, t) => s + t.duration, 0);
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', padding: '8px 20px', background: 'rgba(0,0,0,0.25)', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '0.72rem', color: 'var(--text-secondary)', flexShrink: 0 }}>
+      <span style={{ fontWeight: 600 }}>⏱</span>
+      {parsed.map((t, i) => (
+        <span key={i} style={{ padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          {t.phase} <span style={{ color: '#60a5fa', fontWeight: 600 }}>{t.duration.toFixed(1)}s</span>
+        </span>
+      ))}
+      <span style={{ color: '#10b981', fontWeight: 600 }}>Total: {total.toFixed(1)}s</span>
+    </div>
+  );
+};
+
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 function App() {
@@ -366,10 +343,11 @@ function App() {
   const [isRunning, setIsRunning] = useState(false);
 
   // Chat
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('analyst_messages') || '[]'); }
+    catch { return []; }
+  });
   const [activeTab, setActiveTab] = useState('chat');
-  const [showFullLog, setShowFullLog] = useState(false);
-  const [expandedTimelineSteps, setExpandedTimelineSteps] = useState(new Set());
 
   // Plan review
   const [planContent, setPlanContent] = useState('');
@@ -381,7 +359,15 @@ function App() {
   const [originalCode, setOriginalCode] = useState('');
   const [editorOutput, setEditorOutput] = useState('');
   const [isCodeRunning, setIsCodeRunning] = useState(false);
-  const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(true);
+  const [expandedBlocks, setExpandedBlocks] = useState(() => new Set());
+  const [timings, setTimings] = useState([]);
+  const toggleBlockHistory = useCallback((bIdx) => {
+    setExpandedBlocks(prev => {
+      const next = new Set(prev);
+      next.has(bIdx) ? next.delete(bIdx) : next.add(bIdx);
+      return next;
+    });
+  }, []);
   const [terminalHeight, setTerminalHeight] = useState(240);
   const [isTerminalMinimized, setIsTerminalMinimized] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -455,6 +441,12 @@ function App() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // ── Persist messages to localStorage ────────────────────────────────────
+  useEffect(() => {
+    try { localStorage.setItem('analyst_messages', JSON.stringify(messages)); }
+    catch { /* quota exceeded */ }
+  }, [messages]);
+
   // ── Helpers ──────────────────────────────────────────────────────────────
   const saveCode = async () => {
     try {
@@ -465,38 +457,38 @@ function App() {
 
   const runEditorCode = async () => {
     setIsCodeRunning(true);
-    setEditorOutput('Saving and executing…\n');
+    setEditorOutput('Saving...\n');
     try {
-      // Auto-save before running
       await axios.post(`${API_BASE}/api/code`, { code: editorCode });
       setOriginalCode(editorCode);
-
-      const res = await axios.post(`${API_BASE}/api/run_code`);
-      if (res.data.status === 'success' || res.data.status === 'error') {
-        setEditorOutput(res.data.output || 'Execution completed with no output.');
-      }
+      setEditorOutput('');
     } catch (err) {
-      setEditorOutput('Failed to execute: ' + err.message);
-    } finally {
+      setEditorOutput('Failed to save: ' + err.message);
       setIsCodeRunning(false);
+      return;
     }
+    const ws = new WebSocket(`${WS_BASE}/ws/run_code`);
+    ws.onmessage = (e) => {
+      if (e.data === '[DONE]') { setIsCodeRunning(false); ws.close(); return; }
+      setEditorOutput(prev => prev + e.data);
+    };
+    ws.onerror = () => { setEditorOutput(prev => prev + '\n[Connection error]'); setIsCodeRunning(false); };
+    ws.onclose = () => setIsCodeRunning(false);
   };
 
-  const toggleTimelineStep = useCallback((id) => {
-    setExpandedTimelineSteps((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }, []);
 
   const newAnalysis = () => {
     setMessages([]);
+    localStorage.removeItem('analyst_messages');
     setQuery('');
     setPlanContent('');
+    setTimings([]);
+    setExpandedBlocks(new Set());
     if (wsRef.current) wsRef.current.close();
     setIsRunning(false);
     setActiveTab('chat');
+    axios.delete(`${API_BASE}/api/timings`).catch(() => {});
+    axios.delete(`${API_BASE}/api/annotations`).catch(() => {});
   };
 
   // ── Drag & Drop ──────────────────────────────────────────────────────────
@@ -505,46 +497,46 @@ function App() {
   const onDrop = (e) => {
     e.preventDefault();
     e.currentTarget.classList.remove('dragging');
-    if (e.dataTransfer.files?.[0]) handleFileUpload(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files?.length) handleFilesUpload(e.dataTransfer.files);
   };
-  const onFileChange = (e) => { if (e.target.files?.[0]) handleFileUpload(e.target.files[0]); };
+  const onFileChange = (e) => { if (e.target.files?.length) handleFilesUpload(e.target.files); };
 
-  const handleFileUpload = async (selectedFile) => {
-    const isCsv = selectedFile.name.endsWith('.csv');
-    const isParquet = selectedFile.name.endsWith('.parquet');
-    if (!isCsv && !isParquet) {
-      alert('Please upload a valid CSV or Parquet file.');
-      return;
-    }
+  const uploadSingleFile = async (selectedFile) => {
     setFile(selectedFile);
-    setIsUploading(true);
     setUploadLogs([]);
-
     const formData = new FormData();
     formData.append('file', selectedFile);
-
     const poll = setInterval(async () => {
       try {
         const res = await axios.get(`${API_BASE}/api/upload_progress?filename=${encodeURIComponent(selectedFile.name)}`);
         if (res.data.status === 'success') setUploadLogs(res.data.progress);
       } catch (e) { console.error(e); }
     }, 200);
-
     try {
       const res = await axios.post(`${API_BASE}/upload`, formData);
       clearInterval(poll);
       if (res.data.status === 'success') {
         setMarkdownContent(res.data.markdown);
         setUploadedFiles(prev => [...new Set([...prev, selectedFile.name])]);
-        setActiveTab('chat');
       } else { alert('Error analyzing file: ' + res.data.message); }
     } catch (err) {
       console.error(err);
-      alert('Failed to upload file.');
-    } finally {
-      setIsUploading(false);
-      clearInterval(poll);
+      alert(`Failed to upload ${selectedFile.name}.`);
+    } finally { clearInterval(poll); }
+  };
+
+  const handleFilesUpload = async (fileList) => {
+    const valid = Array.from(fileList).filter(f =>
+      f.name.endsWith('.csv') || f.name.endsWith('.parquet')
+    );
+    if (valid.length === 0) { alert('Please upload valid CSV or Parquet files.'); return; }
+    setIsUploading(true);
+    for (let i = 0; i < valid.length; i++) {
+      setUploadLogs([`Uploading file ${i + 1} of ${valid.length}: ${valid[i].name}`]);
+      await uploadSingleFile(valid[i]);
     }
+    setIsUploading(false);
+    setActiveTab('chat');
   };
 
   const handleDeleteFile = async (filename) => {
@@ -565,7 +557,7 @@ function App() {
   // ── WebSocket / run analysis ─────────────────────────────────────────────
   const runAnalysis = () => {
     if (!query.trim()) { alert('Please enter a request.'); return; }
-    if (!file && !markdownContent) { alert('Please upload a CSV file first.'); return; }
+    if (uploadedFiles.length === 0 && !markdownContent) { alert('Please upload a CSV file first.'); return; }
 
     const isFollowup = isRunning && wsRef.current && wsRef.current.readyState === WebSocket.OPEN;
 
@@ -724,7 +716,12 @@ function App() {
       }
     };
 
-    wsRef.current.onclose = () => setIsRunning(false);
+    wsRef.current.onclose = () => {
+      setIsRunning(false);
+      axios.get(`${API_BASE}/api/timings`)
+        .then(res => { if (res.data.status === 'success') setTimings(res.data.lines || []); })
+        .catch(() => {});
+    };
     wsRef.current.onerror = () => { setIsRunning(false); alert('WebSocket connection error.'); };
   };
 
@@ -777,6 +774,22 @@ function App() {
     const [cls, label] = map[sender?.toLowerCase()] ?? ['agent-label', sender];
     return <div className={cls}>{label}</div>;
   };
+
+  // ── Group messages into per-request session blocks ──────────────────────
+  const sessionBlocks = useMemo(() => {
+    const blocks = [];
+    let current = [];
+    messages.forEach((msg, idx) => {
+      if (!msg) return;
+      if (msg.sender?.toLowerCase() === 'you' && idx !== 0 && current.length > 0) {
+        blocks.push(current);
+        current = [];
+      }
+      current.push(msg);
+    });
+    if (current.length > 0) blocks.push(current);
+    return blocks;
+  }, [messages]);
 
   return (
     <div className="app-container">
@@ -834,7 +847,7 @@ function App() {
         )}
 
         <div className="upload-section">
-          <input type="file" id="file-upload" accept=".csv,.parquet" style={{ display: 'none' }} onChange={onFileChange} />
+          <input type="file" id="file-upload" accept=".csv,.parquet" multiple style={{ display: 'none' }} onChange={onFileChange} />
           {!isUploading ? (
             <label htmlFor="file-upload">
               <div
@@ -848,7 +861,7 @@ function App() {
                 </div>
                 <div className="upload-info">
                   <div className="upload-title">Upload Dataset</div>
-                  <div className="upload-subtitle">CSV files only</div>
+                  <div className="upload-subtitle">CSV & Parquet, multiple files</div>
                 </div>
               </div>
             </label>
@@ -918,144 +931,111 @@ function App() {
                       <p>Upload a dataset and start analyzing with agentic intelligence.</p>
                     </div>
                   </div>
-                ) : (() => {
-                  try {
-                    // Group messages by session blocks (each starting with a 'You' message)
-                    // We use an IIFE here for logic, but we'll memoize it in the next pass if needed.
-                    const sessionBlocks = [];
-                    let currentBlock = [];
+                ) : (
+                  <>
+                    {sessionBlocks.map((block, bIdx) => {
+                      if (!block || block.length === 0) return null;
 
-                    messages.forEach((msg, idx) => {
-                      if (!msg) return;
-                      const isUser = msg.sender?.toLowerCase() === 'you';
-                      if (isUser && idx !== 0 && currentBlock.length > 0) {
-                        sessionBlocks.push(currentBlock);
-                        currentBlock = [];
-                      }
-                      currentBlock.push(msg);
-                    });
-                    if (currentBlock.length > 0) sessionBlocks.push(currentBlock);
+                      const resultIdx = block.findIndex(m => m && (m.sender?.toLowerCase() === 'feedbackagent' || m.sender?.toLowerCase() === 'resultinterpreter'));
+                      const isLastBlock = bIdx === sessionBlocks.length - 1;
+                      const canCollapse = resultIdx !== -1 && (!isLastBlock || !isRunning);
+                      const blockHistory = resultIdx !== -1 ? block.slice(0, resultIdx) : block;
+                      const blockResults = resultIdx !== -1 ? block.slice(resultIdx) : [];
+                      const userMsg = block.find(m => m && m.sender?.toLowerCase() === 'you');
+                      const restOfHistory = blockHistory.filter(m => m !== userMsg);
 
-                    return (
-                      <>
+                      return (
+                        <div key={`block-${bIdx}`} className="session-block" style={{ marginBottom: isLastBlock ? 0 : '40px', borderBottom: isLastBlock ? 'none' : '1px solid rgba(255,255,255,0.05)', paddingBottom: isLastBlock ? 0 : '40px' }}>
+                          {userMsg && (
+                            <div key={`user-${userMsg?.id}`} className="message-row user" style={{ marginBottom: '48px' }}>
+                              <div className="avatar">{getAvatarIcon(userMsg.sender)}</div>
+                              <div className="chat-bubble user-msg">
+                                <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
+                                  {userMsg.content || ''}
+                                </ReactMarkdown>
+                              </div>
+                            </div>
+                          )}
 
-                        {sessionBlocks.map((block, bIdx) => {
-                          if (!block || block.length === 0) return null;
+                          {!canCollapse ? (
+                            block.filter(m => m !== userMsg).map((msg) => msg && (
+                              <div key={`flat-${msg?.id || Math.random()}`} className={`message-row ${(msg.type || '').toLowerCase() === 'user' ? 'user' : ''}`} style={{ marginBottom: '48px' }}>
+                                <div className="avatar">{getAvatarIcon(msg.sender)}</div>
+                                <div className={`chat-bubble ${(msg.type || '').toLowerCase() === 'agent' ? 'agent' : (msg.type || '').toLowerCase() === 'user' ? 'user-msg' : 'system'}`}>
+                                  {msg.type === 'agent' && getAgentHeaderStyle(msg.sender)}
+                                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
+                                    {msg.content || ''}
+                                  </ReactMarkdown>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <>
+                              {restOfHistory.length > 0 && (
+                                <div className="reasoning-container" style={{ marginLeft: '60px' }}>
+                                  <button
+                                    className="reasoning-toggle"
+                                    style={{ marginLeft: 0 }}
+                                    onClick={() => toggleBlockHistory(bIdx)}
+                                  >
+                                    <ChevronDown size={14} style={{ transform: !expandedBlocks.has(bIdx) ? 'rotate(-90deg)' : 'none', transition: 'transform 0.2s' }} />
+                                    {!expandedBlocks.has(bIdx) ? `Show Agent thought process (${restOfHistory.length} steps)` : 'Hide Agent thought process'}
+                                  </button>
 
-                          const resultIdx = block.findIndex(m => m && m.sender?.toLowerCase() === 'resultinterpreter');
-                          const isLastBlock = bIdx === sessionBlocks.length - 1;
-
-                          const canCollapse = resultIdx !== -1 && (!isLastBlock || !isRunning);
-
-                          const blockHistory = resultIdx !== -1 ? block.slice(0, resultIdx) : block;
-                          const blockResults = resultIdx !== -1 ? block.slice(resultIdx) : [];
-
-                          return (
-                            <div key={`block-${bIdx}`} className="session-block" style={{ marginBottom: isLastBlock ? 0 : '40px', borderBottom: isLastBlock ? 'none' : '1px solid rgba(255,255,255,0.05)', paddingBottom: isLastBlock ? 0 : '40px' }}>
-                              {(() => {
-                                const userMsg = block.find(m => m && m.sender?.toLowerCase() === 'you');
-                                const restOfHistory = blockHistory.filter(m => m !== userMsg);
-
-                                return (
-                                  <>
-                                    {/* 1. Always show User Prompt at top right if it exists */}
-                                    {userMsg && (
-                                      <div key={`user-${userMsg?.id}`} className="message-row user" style={{ marginBottom: '48px' }}>
-                                        <div className="avatar">{getAvatarIcon(userMsg.sender)}</div>
-                                        <div className="chat-bubble user-msg">
-                                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
-                                            {userMsg.content || ''}
-                                          </ReactMarkdown>
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    {!canCollapse ? (
-                                      block.filter(m => m !== userMsg).map((msg) => msg && (
-                                        <div key={`flat-${msg?.id || Math.random()}`} className={`message-row ${(msg.type || '').toLowerCase() === 'user' ? 'user' : ''}`} style={{ marginBottom: '48px' }}>
-                                          <div className="avatar">{getAvatarIcon(msg.sender)}</div>
-                                          <div className={`chat-bubble ${(msg.type || '').toLowerCase() === 'agent' ? 'agent' : (msg.type || '').toLowerCase() === 'user' ? 'user-msg' : 'system'}`}>
-                                            {msg.type === 'agent' && getAgentHeaderStyle(msg.sender)}
-                                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
-                                              {msg.content || ''}
-                                            </ReactMarkdown>
-                                          </div>
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <>
-                                        {restOfHistory.length > 0 && (
-                                          <div className="reasoning-container" style={{ marginLeft: '60px' }}>
-                                            <button
-                                              className="reasoning-toggle"
-                                              style={{ marginLeft: 0 }}
-                                              onClick={() => setIsHistoryCollapsed(!isHistoryCollapsed)}
-                                            >
-                                              <ChevronDown size={14} style={{ transform: isHistoryCollapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.2s' }} />
-                                              {isHistoryCollapsed ? `Show Agent thought process (${restOfHistory.length} steps)` : 'Hide Agent thought process'}
-                                            </button>
-
-                                            {!isHistoryCollapsed && (
-                                              <div className="reasoning-content">
-                                                {restOfHistory.map((msg) => msg && (
-                                                  <div key={`hist-${msg?.id || Math.random()}`} className={`message-row ${(msg.type || "").toLowerCase() === "user" ? "user" : ""}`} style={{ opacity: 0.8, transform: "scale(0.98)", transformOrigin: "left", marginBottom: "32px" }}>
-                                                    <div className="avatar" style={{ width: "28px", height: "28px" }}>{getAvatarIcon(msg.sender)}</div>
-                                                    <div className={`chat-bubble ${(msg.type || "").toLowerCase() === "agent" ? "agent" : (msg.type || "").toLowerCase() === "user" ? "user-msg" : "system"}`}>
-                                                      {msg.type === "agent" && getAgentHeaderStyle(msg.sender)}
-                                                      <div className="markdown-content">
-                                                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
-                                                          {msg.content || ""}
-                                                        </ReactMarkdown>
-                                                      </div>
-                                                    </div>
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            )}
-                                          </div>
-                                        )}
-
-                                        {blockResults.map((msg) => msg && (
-                                          <div key={`res-${msg?.id || Math.random()}`} className={`message-row ${(msg.type || "").toLowerCase() === "user" ? "user" : ""}`} style={{ marginBottom: "64px" }}>
-                                            <div className="avatar">{getAvatarIcon(msg.sender)}</div>
-                                            <div className={`chat-bubble ${(msg.type || "").toLowerCase() === "agent" ? "agent" : (msg.type || "").toLowerCase() === "user" ? "user-msg" : "system"} ${msg.sender?.toLowerCase() === "resultinterpreter" ? "final-result" : ""}`}>
-                                              {msg.type === "agent" && getAgentHeaderStyle(msg.sender)}
-                                              <div className="markdown-content">
-                                                <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
-                                                  {msg.content || ""}
-                                                </ReactMarkdown>
-                                              </div>
+                                  {expandedBlocks.has(bIdx) && (
+                                    <div className="reasoning-content">
+                                      {restOfHistory.map((msg) => msg && (
+                                        <div key={`hist-${msg?.id || Math.random()}`} className={`message-row ${(msg.type || "").toLowerCase() === "user" ? "user" : ""}`} style={{ opacity: 0.8, transform: "scale(0.98)", transformOrigin: "left", marginBottom: "32px" }}>
+                                          <div className="avatar" style={{ width: "28px", height: "28px" }}>{getAvatarIcon(msg.sender)}</div>
+                                          <div className={`chat-bubble ${(msg.type || "").toLowerCase() === "agent" ? "agent" : (msg.type || "").toLowerCase() === "user" ? "user-msg" : "system"}`}>
+                                            {msg.type === "agent" && getAgentHeaderStyle(msg.sender)}
+                                            <div className="markdown-content">
+                                              <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
+                                                {msg.content || ""}
+                                              </ReactMarkdown>
                                             </div>
                                           </div>
-                                        ))}
-                                      </>
-                                    )}
-                                  </>
-                                );
-                              })()}
-                            </div>
-                          );
-                        })}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
 
+                              {blockResults.map((msg) => msg && (
+                                <div key={`res-${msg?.id || Math.random()}`} className={`message-row ${(msg.type || "").toLowerCase() === "user" ? "user" : ""}`} style={{ marginBottom: "64px" }}>
+                                  <div className="avatar">{getAvatarIcon(msg.sender)}</div>
+                                  <div className={`chat-bubble ${(msg.type || "").toLowerCase() === "agent" ? "agent" : (msg.type || "").toLowerCase() === "user" ? "user-msg" : "system"} ${msg.sender?.toLowerCase() === "resultinterpreter" ? "final-result" : ""}`}>
+                                    {msg.type === "agent" && getAgentHeaderStyle(msg.sender)}
+                                    <div className="markdown-content">
+                                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
+                                        {msg.content || ""}
+                                      </ReactMarkdown>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
 
-                        {isRunning && (
-                          <div className="message-row">
-                            <div className="avatar"><Bot size={20} color="#60a5fa" /></div>
-                            <div className="chat-bubble agent">
-                              <div className="spinner-border" style={{ width: '16px', height: '16px', borderWidth: '0.15em', marginRight: '8px' }} />
-                              <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Agent ecosystem is thinking...</span>
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    );
-                  } catch (err) {
-                    console.error("Chat Render Error:", err);
-                    return <div className="system-error">A rendering error occurred in the chat history.</div>;
-                  }
-                })()}
+                    {isRunning && (
+                      <div className="message-row">
+                        <div className="avatar"><Bot size={20} color="#60a5fa" /></div>
+                        <div className="chat-bubble agent">
+                          <div className="spinner-border" style={{ width: '16px', height: '16px', borderWidth: '0.15em', marginRight: '8px' }} />
+                          <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Agent ecosystem is thinking...</span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
                 <div ref={chatEndRef} style={{ height: '20px' }} />
               </div>
+
+              <TimingsBar lines={timings} />
 
               <div className="chat-input-wrapper">
                 <div className="chat-input-container">

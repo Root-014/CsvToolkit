@@ -113,6 +113,9 @@ async def upload_csv(file: UploadFile = File(...)):
 class CodeUpdate(BaseModel):
     code: str
 
+class AnnotationsPayload(BaseModel):
+    annotations: List[Any]
+
 @app.get("/api/code")
 async def get_code():
     code_path = os.path.join(OUTPUT_DIR, "main.py")
@@ -234,8 +237,6 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     
     log_file = "conversation_log.md"
-    # if os.path.exists(log_file):
-    #    os.remove(log_file)
         
     try:
         data = await websocket.receive_text()
@@ -401,6 +402,78 @@ async def view_csv(req: CSVRequest):
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+TIMINGS_FILE = "phase_timings.txt"
+ANNOTATIONS_FILE = "plan_annotations.json"
+
+@app.get("/api/timings")
+async def get_timings():
+    if not os.path.exists(TIMINGS_FILE):
+        return {"status": "success", "lines": []}
+    with open(TIMINGS_FILE, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+    # Return only the most recent run (since last "Phase 1: Planning" entry)
+    last_start = 0
+    for i, line in enumerate(lines):
+        if "Phase: Phase 1: Planning" in line:
+            last_start = i
+    return {"status": "success", "lines": [l.strip() for l in lines[last_start:] if l.strip()]}
+
+@app.delete("/api/timings")
+async def clear_timings():
+    if os.path.exists(TIMINGS_FILE):
+        open(TIMINGS_FILE, "w").close()
+    return {"status": "success"}
+
+@app.get("/api/annotations")
+async def get_annotations():
+    if os.path.exists(ANNOTATIONS_FILE):
+        with open(ANNOTATIONS_FILE, "r", encoding="utf-8") as f:
+            return {"status": "success", "annotations": json.load(f)}
+    return {"status": "success", "annotations": []}
+
+@app.post("/api/annotations")
+async def save_annotations(payload: AnnotationsPayload):
+    with open(ANNOTATIONS_FILE, "w", encoding="utf-8") as f:
+        json.dump(payload.annotations, f, indent=2)
+    return {"status": "success"}
+
+@app.delete("/api/annotations")
+async def clear_annotations():
+    if os.path.exists(ANNOTATIONS_FILE):
+        os.remove(ANNOTATIONS_FILE)
+    return {"status": "success"}
+
+@app.websocket("/ws/run_code")
+async def websocket_run_code(websocket: WebSocket):
+    await websocket.accept()
+    code_path = os.path.join(OUTPUT_DIR, "main.py")
+    if not os.path.exists(code_path):
+        await websocket.send_text("[ERROR] main.py does not exist.\n")
+        return
+    sub_env = os.environ.copy()
+    sub_env["PYTHONIOENCODING"] = "utf-8"
+    process = subprocess.Popen(
+        ["python", "-u", os.path.abspath(code_path)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        env=sub_env,
+        cwd=os.path.abspath(OUTPUT_DIR),
+        bufsize=0
+    )
+    try:
+        while True:
+            line = await asyncio.to_thread(process.stdout.readline)
+            if not line:
+                break
+            await websocket.send_text(line.decode("utf-8", errors="replace"))
+    except Exception as e:
+        try: await websocket.send_text(f"[ERROR] {e}\n")
+        except: pass
+    finally:
+        process.wait()
+        try: await websocket.send_text("[DONE]")
+        except: pass
 
 # Serve static files from the built frontend/dist folder
 frontend_dist = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend", "dist")

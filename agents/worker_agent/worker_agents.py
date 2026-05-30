@@ -6,25 +6,6 @@ from autogen import AssistantAgent
 
 
 
-config_list = {
-    'model': 'minimax-m2.5:cloud',
-    'base_url': 'http://localhost:11434/v1',
-    'api_key': 'gemma3',
-    'api_type': 'openai',
-    "price": [0.0, 0.0]
-}
-
-llm_config = {
-    "config_list": config_list,
-    "temperature": 0.7,
-    "max_tokens": 3000,
-}
-
-llm_config = {
-    "config_list": config_list,
-    "temperature": 0.7,
-    "max_tokens": 3000,
-}
 
 phase1_manager_prompt = lambda user_request, is_followup=False, history_summary=None: f"""
 YOU ARE THE PHASE 1 PLANNING MANAGER (STRICT CONTROLLER)
@@ -101,8 +82,6 @@ COMMUNICATION RULES (STRICT)
 - USE PLAIN LANGUAGE. Do NOT use colon-prefixed tags (Coder:, Executor:, etc.).
 - ONLY THE CODER HAS AUTHORIZATION TO WRITE CODE.
 """
-
-#{f"CONVERSATION HISTORY & STATE:\n{history_summary}\n" if history_summary else ""}
 
 
 metaagent_prompt = lambda user_request, metadata_text, current_plan=None, current_code=None, history_summary=None: f""" 
@@ -306,47 +285,6 @@ TERMINATION:
     - End immediately after response
 """
 
-request_prompt = lambda request, code_output, history_summary=None: f"""
-    You are a RESULT INTERPRETER.
-
-    INPUT:
-        USER REQUEST: {request}
-        CODE OUTPUT: {code_output}
-        {f"CONVERSATION HISTORY & STATE:\n{history_summary}\n" if history_summary else ""}
-
-    ROLE:
-    - Convert the CODE OUTPUT into a clear, user-facing answer.
-    - Base your response primarily on the CODE OUTPUT, but use the CONVERSATION HISTORY for context (e.g., referencing previous findings or terms).
-    - Do NOT infer, assume, or add external knowledge.
-
-    STRICT RULES:
-    - Do NOT explain the code.
-    - Do NOT describe how the result was generated.
-    - Do NOT add assumptions or interpretations beyond the output.
-    - If the output is empty, null, or unclear, respond: "No result available".
-    - If the output contains an error, summarize the error clearly.
-
-    RESPONSE CONSTRAINTS:
-    - Maximum 80 words
-    - Be concise, precise, and structured
-    - Use bullet points ONLY when it improves clarity
-    - Avoid repeating raw data unless necessary
-
-    OUTPUT FORMAT (STRICT MARKDOWN):
-        ### 🎯 Final Answer
-        
-        <PROVIDE CLEAR, STRUCTURED MARKDOWN RESPONSE BASED ON OUTPUT>
-
-    FORMATTING RULES:
-        - Use Markdown (tables, bold, lists) to make the response highly readable.
-        - **TABLES**: Ensure tables have exactly one header row followed by one separator row (`|---|`). Do NOT repeat separators.
-        - Do not repeat the user's request; focus purely on the answer.
-        - Ensure headers are used for separate points if necessary.
-        - Keep RESPONSE clean and readable.
-
-        TERMINATION:
-        - End immediately after the RESPONSE
-            """
 class ExecutorAgent(AssistantAgent):
     def __init__(self, name="Executor"):
         super().__init__(name=name)
@@ -430,13 +368,6 @@ class Agents:
     def is_termination_msg_v3(self, msg):
         content = msg.get("content", "").strip()
         sender = msg.get("name") or msg.get("role")
-        # print("sender :",sender)
-        # print("response: ", (
-        #     sender == "FeedbackAgent" and
-        #     any(line.strip() == "STATUS: APPROVED" for line in content.splitlines())
-        # ))
-    
-
         return (
             sender == "FeedbackAgent" and
             any(line.strip().replace("*", "") == "STATUS: APPROVED" for line in content.splitlines())
@@ -595,10 +526,9 @@ class Agents:
         feedback_agent = autogen.AssistantAgent(
             name="FeedbackAgent",
             llm_config=self.get_llm_config(temperature=0.3),
-            is_termination_msg=self.is_termination_msg,
+            is_termination_msg=self.is_termination_msg_v3,
             system_message=validate_agent_prompt(user_request),
         )
-        # feedback_agent.register_function(function_map={"python_code_executor": self.execute_generated_code})
         return feedback_agent
 
     def executor_agent_init(self):
@@ -615,13 +545,4 @@ class Agents:
         return executor_agent
 
 
-    def result_agent_init(self, request, code_output, history_summary=None):
-        result_agent = autogen.AssistantAgent(
-            name="ResultInterpreter",
-            llm_config=self.get_llm_config(temperature=0.5),
-            system_message=request_prompt(request, code_output, history_summary=history_summary)
-        )
-        
-        return result_agent
-         
-        
+

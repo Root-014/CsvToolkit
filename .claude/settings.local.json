@@ -8,7 +8,8 @@
       "Bash(pip list:*)",
       "Bash(SYSTEM_SUMMARY.txt:*)",
       "Bash(ls -lh *.py *.md *.txt)",
-      "Bash(RUN_THIS.txt:*)"
+      "Bash(RUN_THIS.txt:*)",
+      "Bash(npm run:*)"
     ]
   }
 }
