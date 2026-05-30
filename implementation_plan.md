@@ -1,42 +1,47 @@
-## Implementation Plan: Total Null Values Count
+# Implementation Plan: Find All Null Values in Fact.BucketWeights11.csv
 
-### Data Source
-- **File**: `Fact.BucketWeights11.csv`
-- **Location**: Input directory
+## Context
+- **Data Source**: `Fact.BucketWeights11.csv`
+- **File Path**: `generated_code/Input/Fact.BucketWeights11.csv`
 - **Rows**: 870
 - **Columns**: 6
 
-### Context
-The dataset contains the following columns:
-1. `Forecast Iteration.[Forecast Iteration]` (object)
-2. `Version.[Version Name]` (object)
-3. `Time.[Partial Week]` (object)
-4. `Stat Bucket Weight` (float64)
-5. `Stat Bucket Weight AUR` (float64)
-6. `Stat Bucket Weight AUR Fcst` (int64)
+## Dataset Structure
 
-Note: The metadata indicates "missing=0" for all columns, suggesting no null values exist. However, the plan should verify this by performing the count.
+| Column Name | Data Type | Notes |
+|-------------|-----------|-------|
+| Forecast Iteration.[Forecast Iteration] | object | 1 unique value (FI-Default) |
+| Version.[Version Name] | object | 1 unique value (CurrentWorkingView) |
+| Time.[Partial Week] | object | Time column, 870 unique values |
+| Stat Bucket Weight | float64 | Range: 0.032 - 0.25 |
+| Stat Bucket Weight AUR | float64 | Range: 0.0 - 0.25 |
+| Stat Bucket Weight AUR Fcst | int64 | Range: 0 - 1 |
 
-### Objective
-Count the total number of null (missing) values across all columns in the dataset.
+## Objective
+Identify and report all null (missing) values across all columns in the dataset.
 
-### Implementation Steps
+## Implementation Steps
 
-1. **Load the CSV file** from the input directory
-2. **Count null values** in each column using pandas `.isnull().sum()`
-3. **Calculate total** null values across all columns
-4. **Output results** showing:
-   - Null count per column
-   - Total null count for the entire dataset
+1. **Load the CSV file** from `generated_code/Input/Fact.BucketWeights11.csv`
 
-### Expected Output
-A summary displaying null value counts for each column and the aggregate total.
+2. **Detect null values** in all 6 columns using pandas `.isnull()` or `.isna()` method
+
+3. **Generate summary report** containing:
+   - Total null count per column
+   - Total null count for entire dataset
+   - List of row indices (if any) containing null values
+
+4. **Output results** to a clear, readable format
+
+## Expected Output Format
+- Column-by-column null count
+- Row indices with null values (if applicable)
+- Total null value count
+
+## Notes
+- Consider both `None`, `NaN`, and empty string values as null
+- All columns should be checked regardless of data type
 
 ---
 
-## Open Questions
-
-1. Should the output include null counts per column individually, or only the grand total?
-2. Do you need this information exported to a file, or just displayed in the console?
-
----
+****

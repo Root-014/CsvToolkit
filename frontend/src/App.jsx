@@ -385,6 +385,73 @@ function App() {
   const wsRef = useRef(null);
   const textareaRef = useRef(null);
 
+  // Streaming text reveal
+  const [displayedLen, setDisplayedLen] = useState({});
+  const messagesRef = useRef(messages);
+  const rafRef = useRef(null);
+  const sessionMsgIdsRef = useRef(new Set());
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+  // RAF loop — drip chars while running
+  useEffect(() => {
+    if (!isRunning) {
+      if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+      setDisplayedLen(prev => {
+        const next = { ...prev };
+        messagesRef.current.forEach(m => { if (m?.id) next[m.id] = Infinity; });
+        return next;
+      });
+      return;
+    }
+    const CHARS_PER_SEC = 120; // ~ChatGPT streaming speed
+    let lastTs = null;
+    let accumulator = 0;
+    const tick = (ts) => {
+      if (lastTs === null) lastTs = ts;
+      const elapsed = (ts - lastTs) / 1000;
+      lastTs = ts;
+      accumulator += elapsed * CHARS_PER_SEC;
+      const charsThisFrame = Math.floor(accumulator);
+      if (charsThisFrame > 0) accumulator -= charsThisFrame;
+      const msgs = messagesRef.current;
+      setDisplayedLen(prev => {
+        const next = { ...prev };
+        let changed = false;
+        // Snap all messages except the last to fully revealed (sequential streaming)
+        msgs.forEach((m, i) => {
+          if (m?.id && i < msgs.length - 1 && (next[m.id] ?? 0) < Infinity) {
+            next[m.id] = Infinity;
+            changed = true;
+          }
+        });
+        // Stream only the last (currently active) message
+        if (charsThisFrame > 0) {
+          const last = msgs[msgs.length - 1];
+          if (last?.content) {
+            const cur = next[last.id] ?? 0;
+            if (cur < last.content.length) {
+              next[last.id] = Math.min(cur + charsThisFrame, last.content.length);
+              changed = true;
+            }
+          }
+        }
+        return changed ? next : prev;
+      });
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => { if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; } };
+  }, [isRunning]);
+
+  const getVisibleContent = (msg) => {
+    if (!msg?.content) return '';
+    // Old messages (from localStorage) always show fully
+    if (!sessionMsgIdsRef.current.has(msg.id)) return msg.content;
+    const len = displayedLen[msg.id] ?? 0;
+    if (len >= msg.content.length) return msg.content;
+    return msg.content.slice(0, len);
+  };
+
   // ── Auto-resize textarea ────────────────────────────────────────────────
   useEffect(() => {
     if (textareaRef.current) {
@@ -484,11 +551,13 @@ function App() {
     setPlanContent('');
     setTimings([]);
     setExpandedBlocks(new Set());
+    sessionMsgIdsRef.current = new Set();
+    setDisplayedLen({});
     if (wsRef.current) wsRef.current.close();
     setIsRunning(false);
     setActiveTab('chat');
-    axios.delete(`${API_BASE}/api/timings`).catch(() => {});
-    axios.delete(`${API_BASE}/api/annotations`).catch(() => {});
+    axios.delete(`${API_BASE}/api/timings`).catch(() => { });
+    axios.delete(`${API_BASE}/api/annotations`).catch(() => { });
   };
 
   // ── Drag & Drop ──────────────────────────────────────────────────────────
@@ -608,16 +677,11 @@ function App() {
         const whitelist = ['manager', 'metadata_specialist', 'planner', 'coder', 'feedbackagent', 'userproxy', 'resultinterpreter'];
 
         if (whitelist.includes(sender.toLowerCase())) {
-          setMessages(prev => {
-            currentMessage = {
-              id: Date.now() + Math.random(),
-              sender: sender,
-              receiver: agentMatch[2],
-              content: '',
-              type: 'agent',
-            };
-            return [...prev, currentMessage];
-          });
+          const newId = Date.now() + Math.random();
+          currentMessage = { id: newId, sender, receiver: agentMatch[2], content: '', type: 'agent' };
+          sessionMsgIdsRef.current.add(newId);
+          setDisplayedLen(prev => ({ ...prev, [newId]: 0 }));
+          setMessages(prev => [...prev, currentMessage]);
         } else {
           currentMessage = null; // Ignore this agent's session
         }
@@ -720,7 +784,7 @@ function App() {
       setIsRunning(false);
       axios.get(`${API_BASE}/api/timings`)
         .then(res => { if (res.data.status === 'success') setTimings(res.data.lines || []); })
-        .catch(() => {});
+        .catch(() => { });
     };
     wsRef.current.onerror = () => { setIsRunning(false); alert('WebSocket connection error.'); };
   };
@@ -936,7 +1000,7 @@ function App() {
                     {sessionBlocks.map((block, bIdx) => {
                       if (!block || block.length === 0) return null;
 
-                      const resultIdx = block.findIndex(m => m && (m.sender?.toLowerCase() === 'feedbackagent' || m.sender?.toLowerCase() === 'resultinterpreter'));
+                      const resultIdx = block.findIndex(m => m && m.sender?.toLowerCase() === 'resultinterpreter');
                       const isLastBlock = bIdx === sessionBlocks.length - 1;
                       const canCollapse = resultIdx !== -1 && (!isLastBlock || !isRunning);
                       const blockHistory = resultIdx !== -1 ? block.slice(0, resultIdx) : block;
@@ -964,7 +1028,7 @@ function App() {
                                 <div className={`chat-bubble ${(msg.type || '').toLowerCase() === 'agent' ? 'agent' : (msg.type || '').toLowerCase() === 'user' ? 'user-msg' : 'system'}`}>
                                   {msg.type === 'agent' && getAgentHeaderStyle(msg.sender)}
                                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
-                                    {msg.content || ''}
+                                    {getVisibleContent(msg)}
                                   </ReactMarkdown>
                                 </div>
                               </div>
@@ -991,7 +1055,7 @@ function App() {
                                             {msg.type === "agent" && getAgentHeaderStyle(msg.sender)}
                                             <div className="markdown-content">
                                               <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
-                                                {msg.content || ""}
+                                                {getVisibleContent(msg)}
                                               </ReactMarkdown>
                                             </div>
                                           </div>
@@ -1009,7 +1073,7 @@ function App() {
                                     {msg.type === "agent" && getAgentHeaderStyle(msg.sender)}
                                     <div className="markdown-content">
                                       <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
-                                        {msg.content || ""}
+                                        {getVisibleContent(msg)}
                                       </ReactMarkdown>
                                     </div>
                                   </div>
