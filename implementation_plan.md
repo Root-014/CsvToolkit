@@ -1,46 +1,36 @@
-# Implementation Plan: Find All Null Values in Fact.BucketWeights11.csv
+## Implementation Plan: Find All Null Values in Fact.BucketWeights11.csv
 
-## Context
-- **Data Source**: `Fact.BucketWeights11.csv`
-- **File Path**: `generated_code/Input/Fact.BucketWeights11.csv`
-- **Rows**: 870
-- **Columns**: 6
+### Context
+Based on the provided metadata, the target file is `Fact.BucketWeights11.csv` with 870 rows and 6 columns.
 
-## Dataset Structure
+### Data Source
+- **File Path**: `Fact.BucketWeights11.csv`
+- **Location**: Use the exact path where the file is stored
 
-| Column Name | Data Type | Notes |
-|-------------|-----------|-------|
-| Forecast Iteration.[Forecast Iteration] | object | 1 unique value (FI-Default) |
-| Version.[Version Name] | object | 1 unique value (CurrentWorkingView) |
-| Time.[Partial Week] | object | Time column, 870 unique values |
-| Stat Bucket Weight | float64 | Range: 0.032 - 0.25 |
-| Stat Bucket Weight AUR | float64 | Range: 0.0 - 0.25 |
-| Stat Bucket Weight AUR Fcst | int64 | Range: 0 - 1 |
+### Columns to Analyze
+| Column Name | Type | Notes |
+|-------------|------|-------|
+| Forecast Iteration.[Forecast Iteration] | object | 1 unique |
+| Version.[Version Name] | object | 1 unique |
+| Time.[Partial Week] | object | time (870 unique values) |
+| Stat Bucket Weight | float64 | min=0.032, max=0.25 |
+| Stat Bucket Weight AUR | float64 | min=0.0, max=0.25 |
+| Stat Bucket Weight AUR Fcst | int64 | min=0, max=1 |
 
-## Objective
-Identify and report all null (missing) values across all columns in the dataset.
-
-## Implementation Steps
-
-1. **Load the CSV file** from `generated_code/Input/Fact.BucketWeights11.csv`
-
-2. **Detect null values** in all 6 columns using pandas `.isnull()` or `.isna()` method
-
-3. **Generate summary report** containing:
+### Implementation Steps
+1. **Load the CSV file** `Fact.BucketWeights11.csv` into a pandas DataFrame
+2. **Check each column** for null/missing values using:
+   - `df.isnull().sum()` - count of null values per column
+   - `df.isnull().sum(axis=1)` - count of null values per row
+3. **Generate a report** containing:
    - Total null count per column
-   - Total null count for entire dataset
-   - List of row indices (if any) containing null values
+   - List of row indices with null values
+   - Summary statistics of null value distribution
 
-4. **Output results** to a clear, readable format
-
-## Expected Output Format
-- Column-by-column null count
-- Row indices with null values (if applicable)
-- Total null value count
-
-## Notes
-- Consider both `None`, `NaN`, and empty string values as null
-- All columns should be checked regardless of data type
+### Output Requirements
+- Report the exact count of null values found in each column
+- List specific row numbers (index) where null values are present
+- Provide a clean summary of findings
 
 ---
 

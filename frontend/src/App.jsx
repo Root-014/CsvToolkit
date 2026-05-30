@@ -1002,7 +1002,9 @@ function App() {
 
                       const resultIdx = block.findIndex(m => m && m.sender?.toLowerCase() === 'resultinterpreter');
                       const isLastBlock = bIdx === sessionBlocks.length - 1;
-                      const canCollapse = resultIdx !== -1 && (!isLastBlock || !isRunning);
+                      const resultMsg = block.find(m => m?.sender?.toLowerCase() === 'resultinterpreter');
+                      const resultReady = (resultMsg?.content?.length ?? 0) > 0;
+                      const canCollapse = resultIdx !== -1 && (!isLastBlock || resultReady);
                       const blockHistory = resultIdx !== -1 ? block.slice(0, resultIdx) : block;
                       const blockResults = resultIdx !== -1 ? block.slice(resultIdx) : [];
                       const userMsg = block.find(m => m && m.sender?.toLowerCase() === 'you');

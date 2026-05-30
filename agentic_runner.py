@@ -5,6 +5,7 @@ import autogen
 import sys
 import io
 import subprocess
+import threading
 from agents.worker_agent.worker_agents import Agents
 from agents.worker_agent.worker_agents import ExecutorAgent
 from autogen import GroupChat, GroupChatManager
@@ -232,41 +233,45 @@ def run_agent_workflow(initial_request, metadata_text):
             res_gen_end = datetime.now()
             log_phase_time("Result Generation", res_gen_start, res_gen_end)
 
-            # --- CONTEXT SUMMARIZATION (Asynchronous in flow) ---
-            print("[INFO] Updating session memory...")
+            # --- CONTEXT SUMMARIZATION (Background thread) ---
             mem_start = datetime.now()
-            try:
-                # Collect logs from this turn
-                turn_logs = []
-                for msg in groupchat1.messages:
-                    turn_logs.append(f"{msg.get('name', 'Agent')}: {msg.get('content', '')}")
-                for msg in groupchat2.messages:
-                    turn_logs.append(f"{msg.get('name', 'Agent')}: {msg.get('content', '')}")
-                
-                logs_text = "\n".join(turn_logs)
-                
-                summarizer = agent_factory.context_manager_init()
-                summary_prompt = f"CURRENT CONTEXT: {json.dumps(session_context)}\n\nNEW LOGS FROM THIS TURN:\n{logs_text}"
-                summary_res = summarizer.generate_reply(messages=[{"role": "user", "content": summary_prompt}])
-                summary_content = summary_res["content"] if isinstance(summary_res, dict) else summary_res
-                
-                # Extract JSON
-                json_match = re.search(r'\{.*\}', summary_content, re.DOTALL)
-                if json_match:
-                    session_context = json.loads(json_match.group(0))
-                    save_session_context(session_context)
-                    print(f"[DEBUG] Session memory updated. Proactive suggestions: {len(session_context.get('proactive_suggestions', []))}")
-            except Exception as e:
-                print(f"[DEBUG] Memory update failed: {e}")
+            mem_result = [session_context]  # mutable container for thread result
+
+            def _update_memory():
+                try:
+                    turn_logs = []
+                    for msg in groupchat1.messages:
+                        turn_logs.append(f"{msg.get('name', 'Agent')}: {msg.get('content', '')}")
+                    for msg in groupchat2.messages:
+                        turn_logs.append(f"{msg.get('name', 'Agent')}: {msg.get('content', '')}")
+                    logs_text = "\n".join(turn_logs)
+                    summarizer = agent_factory.context_manager_init()
+                    summary_prompt = f"CURRENT CONTEXT: {json.dumps(mem_result[0])}\n\nNEW LOGS FROM THIS TURN:\n{logs_text}"
+                    summary_res = summarizer.generate_reply(messages=[{"role": "user", "content": summary_prompt}])
+                    summary_content = summary_res["content"] if isinstance(summary_res, dict) else summary_res
+                    json_match = re.search(r'\{.*\}', summary_content, re.DOTALL)
+                    if json_match:
+                        mem_result[0] = json.loads(json_match.group(0))
+                        save_session_context(mem_result[0])
+                except Exception as e:
+                    print(f"[DEBUG] Memory update failed: {e}", flush=True)
+
+            mem_thread = threading.Thread(target=_update_memory, daemon=True)
+            mem_thread.start()
+
+            print("[WAITING_FOR_INPUT] Ready for follow-up questions.", flush=True)
+            next_input = sys.stdin.readline().strip()
+
+            # Wait for memory thread before next turn (30s max)
+            mem_thread.join(timeout=30)
             mem_end = datetime.now()
             log_phase_time("Memory Update", mem_start, mem_end)
+            session_context = mem_result[0]
 
-            print("[WAITING_FOR_INPUT] Ready for follow-up questions.")
-            next_input = sys.stdin.readline().strip()
             if not next_input or next_input.lower() in ['exit', 'quit', 'terminate']:
                 print("[SYSTEM] Session terminated.")
                 break
-            
+
             current_request = next_input
             is_first_turn = False
 
