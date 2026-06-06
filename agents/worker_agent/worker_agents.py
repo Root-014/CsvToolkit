@@ -267,8 +267,8 @@ OUTPUT FORMAT (STRICT - NO DEVIATION):
 ```text
 <complete code execution output, exactly as returned by the executed code>
 ```
-
 ---
+```
 <!-- FINAL_ANSWER_START -->
 ### 🎯 Final Answer
 (ONLY GENERATE THIS SECTION IF STATUS IS APPROVED)
@@ -280,7 +280,7 @@ OUTPUT FORMAT (STRICT - NO DEVIATION):
 - Use Markdown (tables, bold, lists) to make the response highly readable.
 - **TABLES**: Ensure tables have exactly one header row followed by one separator row (|---|). Do NOT repeat separators.
 <!-- FINAL_ANSWER_END -->
-
+```
 TERMINATION:
     - End immediately after response
 """
