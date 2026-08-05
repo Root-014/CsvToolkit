@@ -366,6 +366,7 @@ body {
 
 .chat-bubble table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   margin-bottom: 1.5em;
   font-size: 0.9rem;
@@ -380,6 +381,8 @@ body {
   padding: 10px 12px;
   text-align: left;
   border: 1px solid rgba(255,255,255,0.1);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .chat-bubble th {
@@ -1651,6 +1654,7 @@ body {
 
 .chat-bubble table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   margin: 16px 0;
   font-size: 0.82rem;
@@ -1672,7 +1676,8 @@ body {
   padding: 10px 14px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   text-align: left;
-  min-width: 120px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .chat-bubble th {
@@ -1817,6 +1822,7 @@ body {
 
 .final-result table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   margin: 16px 0;
   font-size: 0.9rem;
@@ -1829,6 +1835,8 @@ body {
   padding: 10px 14px;
   border: 1px solid rgba(255,255,255,0.06);
   text-align: left;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .final-result th {

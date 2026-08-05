@@ -11,5 +11,20 @@
       "Bash(RUN_THIS.txt:*)",
       "Bash(npm run:*)"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/frontend-dev-server.js",
+            "timeout": 10,
+            "statusMessage": "Ensuring frontend dev server is running..."
+          }
+        ]
+      }
+    ]
   }
 }

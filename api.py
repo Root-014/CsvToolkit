@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 import asyncio
 import sys
+import re
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
@@ -263,24 +264,36 @@ async def websocket_endpoint(websocket: WebSocket):
         
         async def read_stdout():
             suppressing = False
+            # Marks the start of a new message (agent header, follow-up prompt, or
+            # session-control line). If suppression is still active when one of these
+            # appears, the closing FINAL_ANSWER_END marker was lost (e.g. truncated by
+            # a token limit) - force-clear so the stream can never hang forever.
+            boundary_re = re.compile(r'^\w+\s+\(to\s+\w+\):')
             try:
                 while True:
                     line = await asyncio.to_thread(process.stdout.readline)
                     if not line:
                         break
-                    
+
                     decoded_line = line.decode('utf-8', errors='replace').strip()
-                    
+
+                    if suppressing and (
+                        boundary_re.match(decoded_line)
+                        or decoded_line.startswith('[WAITING_FOR_INPUT]')
+                        or decoded_line.startswith('[SYSTEM')
+                    ):
+                        suppressing = False
+
                     # Detect start/end of hidden tags
                     if "<!-- FINAL_ANSWER_START -->" in decoded_line:
                         suppressing = True
-                    
+
                     if not suppressing and decoded_line:
                         print(f"Subprocess output: {decoded_line}")
                         await websocket.send_text(decoded_line)
                         with open(log_file, "a", encoding="utf-8") as f:
                             f.write(decoded_line + "\n")
-                    
+
                     if "<!-- FINAL_ANSWER_END -->" in decoded_line:
                         suppressing = False
             except Exception as e:

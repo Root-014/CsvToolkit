@@ -25,7 +25,7 @@ if sys.stderr.encoding.lower() != 'utf-8':
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 # ------------------------ Global Configuration ------------------------ #
-MODEL = 'minimax-m2.5:cloud'
+MODEL = 'gpt-oss:120b-cloud'
 BASE_URL = 'http://localhost:11434/v1'
 API_KEY = 'gemma3'
 OUTPUT_DIR = '.'
